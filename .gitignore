@@ -1,0 +1,58 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+# ==========================================
+# CUSTOM E-COMMERCE & DATABASE RULES (ADD)
+# ==========================================
+
+# 1. Active Credentials & Secrets
+src/main/resources/application.properties
+src/main/resources/application.yml
+src/main/resources/application-*.properties
+src/main/resources/application-*.yml
+
+# 2. Uploaded Media & Documents (Seller verification, product images)
+/uploads/
+src/main/webapp/uploads/
+src/main/resources/static/uploads/
+
+# 3. Database Dumps & Logs
+*.sql
+*.dump
+*.log
+/logs/
+
+# 4. OS Files
+.DS_Store
+Thumbs.db

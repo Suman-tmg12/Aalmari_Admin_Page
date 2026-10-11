@@ -1,51 +1,6 @@
-// Core State Store
-let sellers = [
-    {
-        id: 101, user: "Sujita Shrestha", email: "sujita@himalayanhandicrafts.com", phone: "+977 9841234567",
-        storeName: "Himalayan Craft Aalmari", regNo: "REG-8841-KTM", pan: "602349182",
-        bankName: "Nabil Bank Ltd", bankAcc: "010293847501", category: "Handicrafts & Decor",
-        status: "Pending", appliedDate: "2026-10-04",
-        documents: {
-            citizenship: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=600&auto=format&fit=crop&q=80",
-            regCert: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600&auto=format&fit=crop&q=80",
-            taxClearance: "https://images.unsplash.com/photo-1450133064473-71024230f91b?w=600&auto=format&fit=crop&q=80"
-        }
-    },
-    {
-        id: 102, user: "Rohan Pradhan", email: "rohan@pashminaelegance.np", phone: "+977 9801987654",
-        storeName: "Pashmina Elegance", regNo: "REG-9912-LAL", pan: "301982741",
-        bankName: "Global IME Bank", bankAcc: "089123412301", category: "Apparel & Fashion",
-        status: "Pending", appliedDate: "2026-10-05",
-        documents: {
-            citizenship: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=80",
-            regCert: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600&auto=format&fit=crop&q=80",
-            taxClearance: "https://images.unsplash.com/photo-1450133064473-71024230f91b?w=600&auto=format&fit=crop&q=80"
-        }
-    },
-    {
-        id: 103, user: "Anil Gurung", email: "anil@kathmandutech.com", phone: "+977 9811223344",
-        storeName: "Kathmandu Tech Central", regNo: "REG-1102-KTM", pan: "109283746",
-        bankName: "NIC Asia Bank", bankAcc: "001239841289", category: "Electronics & Gadgets",
-        status: "Pending", appliedDate: "2026-10-06",
-        documents: {
-            citizenship: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&auto=format&fit=crop&q=80",
-            regCert: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600&auto=format&fit=crop&q=80",
-            taxClearance: "https://images.unsplash.com/photo-1450133064473-71024230f91b?w=600&auto=format&fit=crop&q=80"
-        }
-    },
-    {
-        id: 104, user: "Pooja Thapa", email: "pooja@ethnikaalmari.com", phone: "+977 9851009988",
-        storeName: "Ethnik Studio Aalmari", regNo: "REG-4432-BKT", pan: "509182736",
-        bankName: "Standard Chartered", bankAcc: "019283741234", category: "Apparel & Fashion",
-        status: "Approved", appliedDate: "2026-09-20", documents: {}
-    }
-];
-
-let heroSlides = [
-    { id: 1, title: "Festive Ethnic Aalmari Collection", subtitle: "EXCLUSIVE HANDMADE SAREES & KURTIS", ctaText: "Explore Collection", ctaUrl: "aalmari.com/category/ethnic-wear", imageUrl: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80", priority: 1, active: true },
-    { id: 2, title: "Pure Cashmere & Pashmina Shawls", subtitle: "FLAT 25% OFF FOR VERIFIED VENDORS", ctaText: "Shop Winter Warmth", ctaUrl: "aalmari.com/category/pashmina", imageUrl: "https://images.unsplash.com/photo-1520903920243-00d872a2d1c9?w=800&auto=format&fit=crop&q=80", priority: 2, active: true },
-    { id: 3, title: "Authentic Handcrafted Jewelry", subtitle: "DIRECT FROM LOCAL ARTISANS", ctaText: "Discover Jewelry", ctaUrl: "aalmari.com/category/jewelry", imageUrl: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&auto=format&fit=crop&q=80", priority: 3, active: true }
-];
+// Global variable to store fetched sellers data
+let sellers = [];
+let heroSlides = []; // Start empty, will fetch from backend
 
 let vendorProducts = [
     { id: 201, title: "Handwoven Pure Cashmere Pashmina", store: "Pashmina Elegance", category: "Apparel", price: 12500, stock: 15, status: "Approved", featured: true },
@@ -61,22 +16,20 @@ let mockSlideIndex = 0;
 window.onload = function() {
     renderDashboardActivity();
     renderKycSellerTable();
-    renderHeroSlidesCMS();
+    fetchHeroSlides(); // Fetch from backend instead of hardcoded
     renderProductsModerationTable();
     renderPayoutsTable();
     initMarketplaceCharts();
 
-    // ---- FIX: wire up sidebar nav items to switchView() ----
     document.querySelectorAll('.nav-menu .nav-item a').forEach(link => {
         link.addEventListener('click', function (e) {
-            e.preventDefault(); // stop the plain #hash jump
+            e.preventDefault();
             const view = this.getAttribute('data-view');
             if (view) {
                 switchView(view);
             }
         });
     });
-    // ----------------------------------------------------------
 
     const kycSearchInput = document.getElementById('seller-kyc-search');
     if (kycSearchInput) {
@@ -96,7 +49,6 @@ window.onload = function() {
         });
     }
 
-    // ---- FIX: guard theme-toggle in case the button/icons aren't in the DOM ----
     const themeToggle = document.getElementById('theme-toggle');
     if (themeToggle) {
         themeToggle.addEventListener('click', () => {
@@ -115,7 +67,6 @@ window.onload = function() {
             }
         });
     }
-    // ------------------------------------------------------------------------------
 
     const openSidebarBtn = document.getElementById('open-sidebar-btn');
     const closeSidebarBtn = document.getElementById('close-sidebar-btn');
@@ -130,7 +81,6 @@ window.onload = function() {
         });
     }
 
-    // Show mobile toggles only on small screens
     function syncMobileButtons() {
         const show = window.innerWidth <= 1024;
         if (openSidebarBtn) openSidebarBtn.style.display = show ? 'flex' : 'none';
@@ -138,6 +88,41 @@ window.onload = function() {
     }
     syncMobileButtons();
     window.addEventListener('resize', syncMobileButtons);
+
+    // ============================================
+    // IMAGE PREVIEW FUNCTIONALITY FOR SLIDE UPLOAD
+    // ============================================
+    const imageFileInput = document.getElementById('slide-image-file');
+    if (imageFileInput) {
+        imageFileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                // Validate file size (max 5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    showToast('Image size must be less than 5MB', 'danger');
+                    this.value = '';
+                    return;
+                }
+
+                // Show preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const previewContainer = document.getElementById('image-preview-container');
+                    const previewImage = document.getElementById('image-preview');
+                    if (previewContainer && previewImage) {
+                        previewImage.src = e.target.result;
+                        previewContainer.style.display = 'block';
+                    }
+                };
+                reader.readAsDataURL(file);
+            } else {
+                const previewContainer = document.getElementById('image-preview-container');
+                if (previewContainer) {
+                    previewContainer.style.display = 'none';
+                }
+            }
+        });
+    }
 };
 
 function switchView(viewName) {
@@ -175,15 +160,43 @@ function filterSellerStatus(status) {
     renderKycSellerTable();
 }
 
-function renderKycSellerTable() {
+// Fetch seller documentation from backend
+async function fetchSellerDocumentation(status = null) {
+    try {
+        let url = '/api/admin/seller-documentation';
+        if (status && status !== 'ALL') {
+            url = `/api/admin/seller-documentation/status/${status.toLowerCase()}`;
+        }
+
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error('Failed to fetch seller documentation');
+        }
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching seller documentation:', error);
+        showToast('Failed to load seller applications', 'danger');
+        return [];
+    }
+}
+
+// FIXED renderKycSellerTable — always fetch ALL sellers, filter status client-side
+async function renderKycSellerTable() {
     const tbody = document.getElementById('sellers-kyc-tbody');
     const searchInput = document.getElementById('seller-kyc-search');
     const search = searchInput ? searchInput.value.toLowerCase() : '';
 
-    const pendingCount = sellers.filter(s => s.status === 'Pending').length;
-    const approvedCount = sellers.filter(s => s.status === 'Approved').length;
-    const rejectedCount = sellers.filter(s => s.status === 'Rejected').length;
+    if (!tbody) return;
 
+    // ALWAYS fetch the full unfiltered list — this is the fix
+    sellers = await fetchSellerDocumentation(null);
+
+    // Calculate counts from the COMPLETE dataset
+    const pendingCount = sellers.filter(s => s.status === 'pending').length;
+    const approvedCount = sellers.filter(s => s.status === 'approved').length;
+    const rejectedCount = sellers.filter(s => s.status === 'rejected').length;
+
+    // Update UI counts
     const navBadge = document.getElementById('nav-pending-kyc-badge');
     if (navBadge) navBadge.innerText = pendingCount;
     const dashCount = document.getElementById('dash-kyc-count');
@@ -200,11 +213,17 @@ function renderKycSellerTable() {
     const countRejectedTab = document.getElementById('count-rejected-tab');
     if (countRejectedTab) countRejectedTab.innerText = rejectedCount;
 
-    if (!tbody) return;
-
+    // Filter by active tab status + search (done client-side now)
     const filtered = sellers.filter(s => {
-        const matchStatus = currentKycFilter === 'ALL' || s.status === currentKycFilter;
-        const matchSearch = s.storeName.toLowerCase().includes(search) || s.user.toLowerCase().includes(search) || s.pan.toLowerCase().includes(search);
+        const displayStatus = s.status ? s.status.toLowerCase() : 'pending';
+
+        const matchStatus = currentKycFilter === 'ALL' ||
+            displayStatus === currentKycFilter.toLowerCase();
+
+        const matchSearch = (s.storeName && s.storeName.toLowerCase().includes(search)) ||
+            (s.businessEmail && s.businessEmail.toLowerCase().includes(search)) ||
+            (s.taxId && s.taxId.toLowerCase().includes(search));
+
         return matchStatus && matchSearch;
     });
 
@@ -215,32 +234,33 @@ function renderKycSellerTable() {
 
     tbody.innerHTML = filtered.map(s => {
         let statusBadge = '';
-        if (s.status === 'Pending') {
+        const displayStatus = s.status ? s.status.toLowerCase() : 'pending';
+        if (displayStatus === 'pending') {
             statusBadge = `<span class="badge badge-pending">Pending KYC Review</span>`;
-        } else if (s.status === 'Approved') {
+        } else if (displayStatus === 'approved') {
             statusBadge = `<span class="badge badge-approved">Active Verified Seller</span>`;
         } else {
             statusBadge = `<span class="badge badge-rejected">Application Rejected</span>`;
         }
 
         return `
-                    <tr>
-                        <td>
-                            <p class="cell-strong">${s.storeName}</p>
-                            <p class="cell-muted">${s.email}</p>
-                        </td>
-                        <td>${s.user}</td>
-                        <td class="mono">${s.pan}</td>
-                        <td>${s.category}</td>
-                        <td class="cell-muted">${s.appliedDate}</td>
-                        <td>${statusBadge}</td>
-                        <td class="text-right">
-                            <button onclick="openKycModal(${s.id})" class="btn btn-primary btn-sm">
-                                <i class="fa-solid fa-file-magnifying-glass"></i> ${s.status === 'Pending' ? 'Inspect Credentials' : 'View KYC Profile'}
-                            </button>
-                        </td>
-                    </tr>
-                `;
+            <tr>
+                <td>
+                    <p class="cell-strong">${s.storeName || 'N/A'}</p>
+                    <p class="cell-muted">${s.businessEmail || 'N/A'}</p>
+                </td>
+                <td>${s.accountHolder || s.userName || 'N/A'}</td>
+                <td class="mono">${s.taxId || 'N/A'}</td>
+                <td>${s.primaryCategory || 'N/A'}</td>
+                <td class="cell-muted">${s.createdAt ? s.createdAt.substring(0, 10) : 'N/A'}</td>
+                <td>${statusBadge}</td>
+                <td class="text-right">
+                    <button onclick="openKycModal(${s.id})" class="btn btn-primary btn-sm">
+                        <i class="fa-solid fa-file-magnifying-glass"></i> ${displayStatus === 'pending' ? 'Inspect Credentials' : 'View KYC Profile'}
+                    </button>
+                </td>
+            </tr>
+        `;
     }).join('');
 }
 
@@ -249,18 +269,18 @@ function openKycModal(id) {
     if (!seller) return;
 
     activeKycSellerId = id;
-    document.getElementById('kyc-modal-store-name').innerText = seller.storeName;
-    document.getElementById('kyc-modal-applicant').innerText = `Applicant: ${seller.user} • Applied: ${sDate(seller.appliedDate)}`;
+    document.getElementById('kyc-modal-store-name').innerText = seller.storeName || 'Store Verification Request';
+    document.getElementById('kyc-modal-applicant').innerText = `Applicant: ${seller.accountHolder || seller.userName || 'N/A'} • Applied: ${seller.createdAt ? seller.createdAt.substring(0, 10) : 'N/A'}`;
 
-    document.getElementById('kyc-info-store').innerText = seller.storeName;
-    document.getElementById('kyc-info-category').innerText = seller.category;
-    document.getElementById('kyc-info-pan').innerText = seller.pan;
-    document.getElementById('kyc-info-regno').innerText = seller.regNo;
+    document.getElementById('kyc-info-store').innerText = seller.storeName || 'N/A';
+    document.getElementById('kyc-info-category').innerText = seller.primaryCategory || 'N/A';
+    document.getElementById('kyc-info-pan').innerText = seller.taxId || 'N/A';
+    document.getElementById('kyc-info-regno').innerText = seller.businessRegistrationNumber || 'N/A';
 
-    document.getElementById('kyc-info-user').innerText = seller.user;
-    document.getElementById('kyc-info-phone').innerText = seller.phone;
-    document.getElementById('kyc-info-bank').innerText = seller.bankName;
-    document.getElementById('kyc-info-acc').innerText = seller.bankAcc;
+    document.getElementById('kyc-info-user').innerText = seller.accountHolder || seller.userName || 'N/A';
+    document.getElementById('kyc-info-phone').innerText = seller.phoneNumber || 'N/A';
+    document.getElementById('kyc-info-bank').innerText = seller.bankName || 'N/A';
+    document.getElementById('kyc-info-acc').innerText = seller.accountIban || 'N/A';
 
     switchKycDocTab('citizenship');
     document.getElementById('modal-seller-kyc').classList.add('active');
@@ -273,14 +293,20 @@ function closeKycModal() {
 function switchKycDocTab(key) {
     activeKycDocKey = key;
     const seller = sellers.find(s => s.id === activeKycSellerId);
-    const docUrl = seller && seller.documents ? seller.documents[key] : 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=600&auto=format&fit=crop&q=80';
+    let docUrl = 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=600&auto=format&fit=crop&q=80';
+
+    if (seller && seller.documents) {
+        if (key === 'citizenship') docUrl = seller.documents.govId || docUrl;
+        if (key === 'regCert') docUrl = seller.documents.bizCert || docUrl;
+        if (key === 'taxClearance') docUrl = seller.documents.addressProof || docUrl;
+    }
 
     ['citizenship', 'regCert', 'taxClearance'].forEach(k => {
         const tabBtn = document.getElementById(`doc-tab-${k}`);
         if (tabBtn) tabBtn.classList.toggle('active', k === key);
     });
 
-    document.getElementById('kyc-doc-img-preview').src = docUrl || 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=600&auto=format&fit=crop&q=80';
+    document.getElementById('kyc-doc-img-preview').src = docUrl;
 }
 
 function openDocLightbox() {
@@ -293,15 +319,29 @@ function closeDocLightbox() {
     document.getElementById('modal-lightbox').style.display = 'none';
 }
 
-function approveSellerKyc() {
+async function approveSellerKyc() {
     if (!activeKycSellerId) return;
-    const seller = sellers.find(s => s.id === activeKycSellerId);
-    if (seller) {
-        seller.status = 'Approved';
-        showToast(`Seller "${seller.storeName}" approved! Account upgraded to Active Seller.`, 'success');
-        renderKycSellerTable();
-        renderDashboardActivity();
-        closeKycModal();
+
+    try {
+        const response = await fetch(`/api/admin/seller-documentation/${activeKycSellerId}/approve`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            showToast(`Seller "${sellers.find(s => s.id === activeKycSellerId)?.storeName}" approved! Account upgraded to Active Seller.`, 'success');
+            renderKycSellerTable();
+            renderDashboardActivity();
+            closeKycModal();
+        } else {
+            showToast('Failed to approve application', 'danger');
+        }
+    } catch (error) {
+        console.error('Error approving application:', error);
+        showToast('Error approving application', 'danger');
     }
 }
 
@@ -319,21 +359,69 @@ function applyPresetReason(val) {
     }
 }
 
-function submitKycRejection(e) {
+async function submitKycRejection(e) {
     e.preventDefault();
     if (!activeKycSellerId) return;
 
     const note = document.getElementById('reject-custom-note').value;
-    const seller = sellers.find(s => s.id === activeKycSellerId);
 
-    if (seller) {
-        seller.status = 'Rejected';
-        seller.rejectionReason = note;
-        showToast(`Seller application for "${seller.storeName}" was rejected. Notice sent.`, 'danger');
-        renderKycSellerTable();
-        renderDashboardActivity();
-        closeRejectReasonModal();
-        closeKycModal();
+    try {
+        const response = await fetch(`/api/admin/seller-documentation/${activeKycSellerId}/reject`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ reason: note })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            showToast(`Seller application for "${sellers.find(s => s.id === activeKycSellerId)?.storeName}" was rejected. Notice sent.`, 'danger');
+            renderKycSellerTable();
+            renderDashboardActivity();
+            closeRejectReasonModal();
+            closeKycModal();
+        } else {
+            showToast('Failed to reject application', 'danger');
+        }
+    } catch (error) {
+        console.error('Error rejecting application:', error);
+        showToast('Error rejecting application', 'danger');
+    }
+}
+
+// ============================================
+// HERO SLIDES - FETCH FROM BACKEND
+// ============================================
+
+// Fetch hero slides from backend
+async function fetchHeroSlides() {
+    try {
+        const response = await fetch('/api/admin/hero-slides');
+        const result = await response.json();
+
+        if (result.success && result.slides) {
+            // Convert backend format to frontend format
+            heroSlides = result.slides.map(s => ({
+                id: s.id,
+                title: s.title,
+                subtitle: s.subtitle || '',
+                ctaText: s.ctaText || 'Shop Now',
+                ctaUrl: s.ctaUrl || '',
+                imageUrl: s.imageUrl,
+                priority: s.priority,
+                active: s.active
+            }));
+        } else {
+            // If no slides in database, use empty array
+            heroSlides = [];
+        }
+        renderHeroSlidesCMS();
+    } catch (error) {
+        console.error('Error fetching hero slides:', error);
+        showToast('Failed to load hero slides', 'danger');
+        heroSlides = [];
+        renderHeroSlidesCMS();
     }
 }
 
@@ -341,35 +429,59 @@ function submitKycRejection(e) {
 function renderHeroSlidesCMS() {
     const container = document.getElementById('hero-slides-list');
     if (!container) return;
+
     const badge = document.getElementById('slide-count-badge');
     if (badge) badge.innerText = `${heroSlides.filter(s => s.active).length} Slides Active`;
 
+    if (heroSlides.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding:2rem; color:var(--text-muted);">No hero slides found. Click "Add New Hero Slide" to create one.</div>`;
+        updateMockHeroPreview();
+        return;
+    }
+
     container.innerHTML = heroSlides.map((slide) => `
-                <div class="slide-item-card">
-                    <img src="${slide.imageUrl}" alt="${slide.title}">
-                    <div style="flex:1; min-width:0;">
-                        <div style="display:flex; align-items:center; gap:0.5rem;">
-                            <span class="slide-priority-badge">#${slide.priority}</span>
-                            <h4 style="font-size:0.8rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${slide.title}</h4>
-                        </div>
-                        <p class="slide-meta">${slide.subtitle || 'No Subtitle'} • Route: ${slide.ctaUrl}</p>
-                    </div>
-                    <div class="slide-actions">
-                        <button onclick="toggleSlideActive(${slide.id})" class="icon-action-btn ${slide.active ? 'on' : ''}" title="Toggle Banner Visibility">
-                            <i class="fa-solid ${slide.active ? 'fa-eye' : 'fa-eye-slash'}"></i>
-                        </button>
-                        <button onclick="editSlide(${slide.id})" class="icon-action-btn"><i class="fa-solid fa-pen-to-square"></i></button>
-                        <button onclick="deleteSlide(${slide.id})" class="icon-action-btn"><i class="fa-solid fa-trash"></i></button>
-                    </div>
+        <div class="slide-item-card">
+            <img src="${slide.imageUrl}" alt="${slide.title}">
+            <div style="flex:1; min-width:0;">
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <span class="slide-priority-badge">#${slide.priority}</span>
+                    <h4 style="font-size:0.8rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${slide.title}</h4>
                 </div>
-            `).join('');
+                <p class="slide-meta">${slide.subtitle || 'No Subtitle'} • Route: ${slide.ctaUrl}</p>
+            </div>
+            <div class="slide-actions">
+                <button onclick="toggleSlideActive(${slide.id})" class="icon-action-btn ${slide.active ? 'on' : ''}" title="Toggle Banner Visibility">
+                    <i class="fa-solid ${slide.active ? 'fa-eye' : 'fa-eye-slash'}"></i>
+                </button>
+                <button onclick="editSlide(${slide.id})" class="icon-action-btn"><i class="fa-solid fa-pen-to-square"></i></button>
+                <button onclick="deleteSlide(${slide.id})" class="icon-action-btn"><i class="fa-solid fa-trash"></i></button>
+            </div>
+        </div>
+    `).join('');
 
     updateMockHeroPreview();
 }
 
 function updateMockHeroPreview() {
     const activeSlides = heroSlides.filter(s => s.active);
-    if (activeSlides.length === 0) return;
+    if (activeSlides.length === 0) {
+        // Show placeholder if no active slides
+        const img = document.getElementById('mock-slide-img');
+        const title = document.getElementById('mock-slide-title');
+        const subtitle = document.getElementById('mock-slide-subtitle');
+        const btn = document.getElementById('mock-slide-btn');
+        const route = document.getElementById('mock-slide-route');
+
+        if (img) img.src = '';
+        if (title) title.innerText = 'No Active Slides';
+        if (subtitle) subtitle.innerText = 'Add a slide to see preview';
+        if (btn) btn.innerText = 'Shop Now';
+        if (route) route.innerText = 'aalmari.com';
+
+        const dotsContainer = document.getElementById('mock-slider-dots');
+        if (dotsContainer) dotsContainer.innerHTML = '';
+        return;
+    }
 
     if (mockSlideIndex >= activeSlides.length) mockSlideIndex = 0;
     const slide = activeSlides[mockSlideIndex];
@@ -379,6 +491,7 @@ function updateMockHeroPreview() {
     const subtitle = document.getElementById('mock-slide-subtitle');
     const btn = document.getElementById('mock-slide-btn');
     const route = document.getElementById('mock-slide-route');
+
     if (img) img.src = slide.imageUrl;
     if (title) title.innerText = slide.title;
     if (subtitle) subtitle.innerText = slide.subtitle || "AALMARI FEATURED";
@@ -388,8 +501,8 @@ function updateMockHeroPreview() {
     const dotsContainer = document.getElementById('mock-slider-dots');
     if (dotsContainer) {
         dotsContainer.innerHTML = activeSlides.map((_, i) => `
-                <span class="mock-dot ${i === mockSlideIndex ? 'active' : ''}"></span>
-            `).join('');
+            <span class="mock-dot ${i === mockSlideIndex ? 'active' : ''}"></span>
+        `).join('');
     }
 }
 
@@ -407,13 +520,31 @@ function prevMockSlide() {
     updateMockHeroPreview();
 }
 
+// ============================================
+// UPDATED: openAddSlideModal with file input clear
+// ============================================
 function openAddSlideModal() {
     document.getElementById('modal-slide-header').innerText = "Add Homepage Hero Slide";
     document.getElementById('slide-form').reset();
     document.getElementById('slide-id').value = "";
+
+    // Clear file input and preview
+    const fileInput = document.getElementById('slide-image-file');
+    if (fileInput) fileInput.value = '';
+
+    const previewContainer = document.getElementById('image-preview-container');
+    if (previewContainer) {
+        previewContainer.style.display = 'none';
+        const previewImage = document.getElementById('image-preview');
+        if (previewImage) previewImage.src = '';
+    }
+
     document.getElementById('modal-hero-slide').classList.add('active');
 }
 
+// ============================================
+// UPDATED: editSlide with file input handling
+// ============================================
 function editSlide(id) {
     const s = heroSlides.find(item => item.id === id);
     if (!s) return;
@@ -424,7 +555,20 @@ function editSlide(id) {
     document.getElementById('slide-subtitle').value = s.subtitle;
     document.getElementById('slide-cta').value = s.ctaText;
     document.getElementById('slide-route').value = s.ctaUrl;
-    document.getElementById('slide-image').value = s.imageUrl;
+
+    // Cannot set file input value for security reasons
+    // Clear file input and show existing image in preview
+    const fileInput = document.getElementById('slide-image-file');
+    if (fileInput) fileInput.value = '';
+
+    // Show current image in preview
+    const previewContainer = document.getElementById('image-preview-container');
+    const previewImage = document.getElementById('image-preview');
+    if (previewContainer && previewImage && s.imageUrl) {
+        previewImage.src = s.imageUrl;
+        previewContainer.style.display = 'block';
+    }
+
     document.getElementById('slide-priority').value = s.priority;
     document.getElementById('slide-active').value = s.active.toString();
 
@@ -435,45 +579,163 @@ function closeSlideModal() {
     document.getElementById('modal-hero-slide').classList.remove('active');
 }
 
-function handleSlideSubmit(e) {
+// ============================================
+// UPDATED: handleSlideSubmit with S3 upload
+// ============================================
+async function handleSlideSubmit(e) {
     e.preventDefault();
+
     const id = document.getElementById('slide-id').value;
     const title = document.getElementById('slide-title').value;
     const subtitle = document.getElementById('slide-subtitle').value;
     const ctaText = document.getElementById('slide-cta').value;
     const ctaUrl = document.getElementById('slide-route').value;
-    const imageUrl = document.getElementById('slide-image').value;
+    const imageFileInput = document.getElementById('slide-image-file');
+    const imageFile = imageFileInput ? imageFileInput.files[0] : null;
     const priority = parseInt(document.getElementById('slide-priority').value);
     const active = document.getElementById('slide-active').value === 'true';
 
-    if (id) {
-        const idx = heroSlides.findIndex(s => s.id == id);
-        if (idx !== -1) {
-            heroSlides[idx] = { id: parseInt(id), title, subtitle, ctaText, ctaUrl, imageUrl, priority, active };
-            showToast('Hero banner updated successfully', 'success');
+    // Validate image upload for new slides
+    if (!imageFile && !id) {
+        showToast('Please upload an image for the slide', 'danger');
+        return;
+    }
+
+    try {
+        let imageUrl = '';
+
+        // If there's a file, upload it to S3 first
+        if (imageFile) {
+            const formData = new FormData();
+            formData.append('file', imageFile);
+
+            showToast('Uploading image...', 'info');
+
+            const uploadResponse = await fetch('/api/admin/upload-slide-image', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!uploadResponse.ok) {
+                const errorData = await uploadResponse.json().catch(() => ({}));
+                showToast('Failed to upload image: ' + (errorData.message || 'Server error'), 'danger');
+                return;
+            }
+
+            const uploadResult = await uploadResponse.json();
+
+            if (!uploadResult.success) {
+                showToast('Failed to upload image: ' + uploadResult.message, 'danger');
+                return;
+            }
+
+            imageUrl = uploadResult.imageUrl;
+            showToast('Image uploaded successfully', 'success');
         }
-    } else {
-        heroSlides.push({ id: Date.now(), title, subtitle, ctaText, ctaUrl, imageUrl, priority, active });
-        showToast('New slide added to storefront banner carousel', 'success');
-    }
 
-    closeSlideModal();
-    renderHeroSlidesCMS();
+        // Prepare slide data with S3 URL
+        const slideData = {
+            title,
+            subtitle,
+            ctaText,
+            ctaUrl,
+            imageUrl: imageUrl, // S3 URL from upload, or empty if editing without new image
+            priority,
+            active
+        };
+
+        // If editing and no new image uploaded, use existing image URL
+        if (id && !imageUrl) {
+            const existingSlide = heroSlides.find(s => s.id == id);
+            if (existingSlide) {
+                slideData.imageUrl = existingSlide.imageUrl;
+            }
+        }
+
+        // Save slide to backend
+        const response = await fetch('/api/admin/hero-slides', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(slideData)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            showToast('Failed to save slide: ' + (errorData.message || 'Server error'), 'danger');
+            return;
+        }
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(id ? 'Hero banner updated successfully' : 'New slide added successfully', 'success');
+            closeSlideModal();
+            fetchHeroSlides(); // Refresh from backend
+        } else {
+            showToast('Failed to save slide: ' + (result.message || 'Unknown error'), 'danger');
+        }
+    } catch (error) {
+        console.error('Error saving slide:', error);
+        showToast('Error saving slide: ' + error.message, 'danger');
+    }
 }
 
-function toggleSlideActive(id) {
-    const slide = heroSlides.find(s => s.id === id);
-    if (slide) {
-        slide.active = !slide.active;
-        showToast(`Slide visibility set to ${slide.active ? 'Active' : 'Draft'}`, 'info');
-        renderHeroSlidesCMS();
+// ============================================
+// UPDATED: toggleSlideActive - calls backend API
+// ============================================
+async function toggleSlideActive(id) {
+    try {
+        const response = await fetch(`/api/admin/hero-slides/${id}/toggle`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(`Slide visibility set to ${result.active ? 'Active' : 'Draft'}`, 'info');
+            fetchHeroSlides(); // Refresh from backend
+        } else {
+            showToast('Failed to toggle slide: ' + result.message, 'danger');
+        }
+    } catch (error) {
+        console.error('Error toggling slide:', error);
+        showToast('Error toggling slide status', 'danger');
     }
 }
 
-function deleteSlide(id) {
-    heroSlides = heroSlides.filter(s => s.id !== id);
-    showToast('Hero slide banner deleted', 'danger');
-    renderHeroSlidesCMS();
+// ============================================
+// UPDATED: deleteSlide - calls backend API
+// ============================================
+async function deleteSlide(id) {
+    if (!confirm('Are you sure you want to delete this slide?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/admin/hero-slides/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast('Hero slide banner deleted', 'danger');
+            fetchHeroSlides(); // Refresh from backend
+        } else {
+            showToast('Failed to delete slide: ' + result.message, 'danger');
+        }
+    } catch (error) {
+        console.error('Error deleting slide:', error);
+        showToast('Error deleting slide', 'danger');
+    }
 }
 
 /* Product Moderation & Payout Logic */
@@ -485,22 +747,22 @@ function renderProductsModerationTable() {
     if (!tbody) return;
 
     tbody.innerHTML = vendorProducts.map(p => `
-                <tr>
-                    <td class="cell-strong">${p.title}</td>
-                    <td>${p.store}</td>
-                    <td class="cell-muted">${p.category}</td>
-                    <td class="cell-strong">NPR ${p.price.toLocaleString()}</td>
-                    <td>${p.stock} units</td>
-                    <td>
-                        <span class="badge ${p.status === 'Approved' ? 'badge-approved' : 'badge-pending'}">${p.status}</span>
-                    </td>
-                    <td class="text-right">
-                        <button onclick="toggleProductFeatured(${p.id})" class="feature-toggle ${p.featured ? 'active' : ''}">
-                            ${p.featured ? '★ Featured' : '☆ Feature'}
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
+        <tr>
+            <td class="cell-strong">${p.title}</td>
+            <td>${p.store}</td>
+            <td class="cell-muted">${p.category}</td>
+            <td class="cell-strong">NPR ${p.price.toLocaleString()}</td>
+            <td>${p.stock} units</td>
+            <td>
+                <span class="badge ${p.status === 'Approved' ? 'badge-approved' : 'badge-pending'}">${p.status}</span>
+            </td>
+            <td class="text-right">
+                <button onclick="toggleProductFeatured(${p.id})" class="feature-toggle ${p.featured ? 'active' : ''}">
+                    ${p.featured ? '★ Featured' : '☆ Feature'}
+                </button>
+            </td>
+        </tr>
+    `).join('');
 }
 
 function toggleProductFeatured(id) {
@@ -522,16 +784,16 @@ function renderPayoutsTable() {
     ];
 
     tbody.innerHTML = data.map(d => `
-                <tr>
-                    <td class="cell-strong">${d.store}</td>
-                    <td class="mono">NPR ${d.sales.toLocaleString()}</td>
-                    <td class="mono" style="color:var(--success); font-weight:700;">NPR ${d.fee.toLocaleString()}</td>
-                    <td class="mono cell-strong">NPR ${d.net.toLocaleString()}</td>
-                    <td class="text-right">
-                        <button onclick="showToast('Payout settled for ${d.store}', 'success')" class="btn btn-primary btn-sm">Release Settlement</button>
-                    </td>
-                </tr>
-            `).join('');
+        <tr>
+            <td class="cell-strong">${d.store}</td>
+            <td class="mono">NPR ${d.sales.toLocaleString()}</td>
+            <td class="mono" style="color:var(--success); font-weight:700;">NPR ${d.fee.toLocaleString()}</td>
+            <td class="mono cell-strong">NPR ${d.net.toLocaleString()}</td>
+            <td class="text-right">
+                <button onclick="showToast('Payout settled for ${d.store}', 'success')" class="btn btn-primary btn-sm">Release Settlement</button>
+            </td>
+        </tr>
+    `).join('');
 }
 
 function updateCommissionRate() {
@@ -539,30 +801,31 @@ function updateCommissionRate() {
     showToast(`Default platform commission set to ${val}%`, 'success');
 }
 
-function renderDashboardActivity() {
+async function renderDashboardActivity() {
     const container = document.getElementById('dashboard-activity-list');
     if (!container) return;
-    const pendingList = sellers.filter(s => s.status === 'Pending');
 
-    if (pendingList.length === 0) {
+    const pendingSellers = await fetchSellerDocumentation('pending');
+
+    if (pendingSellers.length === 0) {
         container.innerHTML = `<p class="empty-note">All pending seller verification requests handled.</p>`;
         return;
     }
 
-    container.innerHTML = pendingList.map(s => `
-                <div class="activity-item">
-                    <div class="activity-left">
-                        <div class="activity-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
-                        <div>
-                            <p class="activity-title">${s.storeName} applied to become Seller</p>
-                            <p class="activity-sub">Applicant: ${s.user} • Category: ${s.category}</p>
-                        </div>
-                    </div>
-                    <a href="javascript:void(0)" onclick="switchView('seller-kyc'); openKycModal(${s.id});" class="activity-link">
-                        Review KYC Documents <i class="fa-solid fa-arrow-right"></i>
-                    </a>
+    container.innerHTML = pendingSellers.slice(0, 5).map(s => `
+        <div class="activity-item">
+            <div class="activity-left">
+                <div class="activity-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                <div>
+                    <p class="activity-title">${s.storeName} applied to become Seller</p>
+                    <p class="activity-sub">Applicant: ${s.accountHolder || s.userName} • Category: ${s.primaryCategory}</p>
                 </div>
-            `).join('');
+            </div>
+            <a href="javascript:void(0)" onclick="switchView('seller-kyc'); openKycModal(${s.id});" class="activity-link">
+                Review KYC Documents <i class="fa-solid fa-arrow-right"></i>
+            </a>
+        </div>
+    `).join('');
 }
 
 function initMarketplaceCharts() {

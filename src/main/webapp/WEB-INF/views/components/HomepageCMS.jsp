@@ -3,7 +3,7 @@
     <div class="page-header">
         <div>
             <h1>Aalmari Homepage CMS</h1>
-            <p>Manage storefront promotional banners, hero carousel slides, and featured layout sections.</p>
+            <p>Manage homepage banners and storefront sections.</p>
         </div>
         <button onclick="openAddSlideModal()" class="btn btn-primary">
             <i class="fa-solid fa-plus"></i> Add New Hero Slide

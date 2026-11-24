@@ -3,15 +3,15 @@
                     <div class="page-header">
                         <div>
                             <h1>Seller KYC Approvals</h1>
-                            <p>Verify business registration, PAN/Tax cards, and citizenship credentials before granting Seller rights.</p>
+                            <p>Review business registration, PAN, and citizenship documents.</p>
                         </div>
                     </div>
 
                     <div class="toolbar">
                         <div class="filter-tabs">
-                            <button onclick="filterSellerStatus('Pending')" id="tab-kyc-pending" class="tab-btn active">Pending Review (<span id="count-pending-tab">3</span>)</button>
-                            <button onclick="filterSellerStatus('Approved')" id="tab-kyc-approved" class="tab-btn">Approved Sellers (<span id="count-approved-tab">48</span>)</button>
-                            <button onclick="filterSellerStatus('Rejected')" id="tab-kyc-rejected" class="tab-btn">Rejected (<span id="count-rejected-tab">12</span>)</button>
+                            <button onclick="filterSellerStatus('Pending')" id="tab-kyc-pending" class="tab-btn active">Pending Review (<span id="count-pending-tab">—</span>)</button>
+                            <button onclick="filterSellerStatus('Approved')" id="tab-kyc-approved" class="tab-btn">Approved Sellers (<span id="count-approved-tab">—</span>)</button>
+                            <button onclick="filterSellerStatus('Rejected')" id="tab-kyc-rejected" class="tab-btn">Rejected (<span id="count-rejected-tab">—</span>)</button>
                             <button onclick="filterSellerStatus('ALL')" id="tab-kyc-all" class="tab-btn">All Applications</button>
                         </div>
 

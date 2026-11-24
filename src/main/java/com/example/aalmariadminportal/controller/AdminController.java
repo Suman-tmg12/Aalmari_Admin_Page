@@ -5,6 +5,7 @@ import com.example.aalmariadminportal.model.HeroSlide;
 import com.example.aalmariadminportal.service.HeroSlideService;
 import com.example.aalmariadminportal.service.S3Service;
 import com.example.aalmariadminportal.service.SellerDocumentationService;
+import com.example.aalmariadminportal.service.PayoutService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,6 +29,9 @@ public class AdminController {
 
     @Autowired
     private HeroSlideService heroSlideService;
+
+    @Autowired
+    private PayoutService payoutService;
 
     // ============================================
     // SELLER DOCUMENTATION ENDPOINTS
@@ -92,6 +96,60 @@ public class AdminController {
         long count = documentationService.getPendingCount();
         response.put("count", count);
         return ResponseEntity.ok(response);
+    }
+
+    // ============================================
+    // PAYOUTS & COMMISSION ENDPOINTS
+    // ============================================
+
+    @GetMapping("/payouts")
+    public ResponseEntity<Map<String, Object>> getPayoutData() {
+        try {
+            return ResponseEntity.ok(payoutService.getPayoutData());
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Could not load payout data: " + e.getMessage());
+            return ResponseEntity.status(500).body(response);
+        }
+    }
+
+    @PostMapping("/payouts/commission")
+    public ResponseEntity<Map<String, Object>> updateCommission(@RequestBody Map<String, Object> body) {
+        try {
+            double commission = Double.parseDouble(String.valueOf(body.get("commissionPercent")));
+            return ResponseEntity.ok(payoutService.updateCommission(commission));
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Could not update commission: " + e.getMessage());
+            return ResponseEntity.status(500).body(response);
+        }
+    }
+
+    @PostMapping("/payouts/{sellerId}/settle")
+    public ResponseEntity<Map<String, Object>> settlePayout(@PathVariable Long sellerId,
+                                                             @RequestBody Map<String, String> body) {
+        try {
+            String period = body.get("period");
+            String reference = body.getOrDefault("reference", "");
+            return ResponseEntity.ok(payoutService.settlePayout(sellerId, period, reference));
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Could not settle payout: " + e.getMessage());
+            return ResponseEntity.status(500).body(response);
+        }
     }
 
     // ============================================

@@ -3,7 +3,7 @@
                     <div class="page-header">
                         <div>
                             <h1>Vendor Product Moderation</h1>
-                            <p>Review vendor uploaded listings, approve products for marketplace publishing, or feature top listings.</p>
+                            <p>Product records are not available from the backend.</p>
                         </div>
                     </div>
 

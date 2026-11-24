@@ -2,24 +2,22 @@
 let sellers = [];
 let heroSlides = []; // Start empty, will fetch from backend
 
-let vendorProducts = [
-    { id: 201, title: "Handwoven Pure Cashmere Pashmina", store: "Pashmina Elegance", category: "Apparel", price: 12500, stock: 15, status: "Approved", featured: true },
-    { id: 202, title: "Traditional Hand-Carved Wooden Box", store: "Himalayan Craft Aalmari", category: "Handicrafts", price: 3400, stock: 8, status: "Pending", featured: false },
-    { id: 203, title: "Wireless Noise Canceling Earbuds", store: "Kathmandu Tech Central", category: "Electronics", price: 4990, stock: 25, status: "Approved", featured: true }
-];
+let vendorProducts = [];
 
 let activeKycSellerId = null;
 let activeKycDocKey = 'citizenship';
 let currentKycFilter = 'Pending';
 let mockSlideIndex = 0;
+const SHOPPING_API_BASE_URL = document.querySelector('meta[name="aalmari-shopping-api-base"]')?.content.replace(/\/+$/, '') || '';
 
 window.onload = function() {
-    renderDashboardActivity();
     renderKycSellerTable();
+    loadSalesSummary();
     fetchHeroSlides(); // Fetch from backend instead of hardcoded
     renderProductsModerationTable();
     renderPayoutsTable();
-    initMarketplaceCharts();
+    const saveCommissionButton = document.getElementById('save-commission-btn');
+    if (saveCommissionButton) saveCommissionButton.addEventListener('click', saveCommission);
 
     document.querySelectorAll('.nav-menu .nav-item a').forEach(link => {
         link.addEventListener('click', function (e) {
@@ -162,22 +160,21 @@ function filterSellerStatus(status) {
 
 // Fetch seller documentation from backend
 async function fetchSellerDocumentation(status = null) {
-    try {
-        let url = '/api/admin/seller-documentation';
-        if (status && status !== 'ALL') {
-            url = `/api/admin/seller-documentation/status/${status.toLowerCase()}`;
-        }
-
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error('Failed to fetch seller documentation');
-        }
-        return await response.json();
-    } catch (error) {
-        console.error('Error fetching seller documentation:', error);
-        showToast('Failed to load seller applications', 'danger');
-        return [];
+    let url = '/api/admin/seller-documentation';
+    if (status && status !== 'ALL') {
+        url = `/api/admin/seller-documentation/status/${status.toLowerCase()}`;
     }
+
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch seller documentation (${response.status})`);
+    }
+
+    const applications = await response.json();
+    if (!Array.isArray(applications)) {
+        throw new Error('Seller documentation response was not a list');
+    }
+    return applications;
 }
 
 // FIXED renderKycSellerTable — always fetch ALL sellers, filter status client-side
@@ -188,15 +185,23 @@ async function renderKycSellerTable() {
 
     if (!tbody) return;
 
-    // ALWAYS fetch the full unfiltered list — this is the fix
-    sellers = await fetchSellerDocumentation(null);
+    try {
+        // Fetch the complete database-backed list so dashboard counts and charts use the same source.
+        sellers = await fetchSellerDocumentation(null);
+    } catch (error) {
+        console.error('Error fetching seller documentation:', error);
+        showToast('Failed to load seller records', 'danger');
+        setDashboardUnavailable();
+        tbody.innerHTML = `<tr><td colspan="7" class="seller-data-message">Unable to load seller records.</td></tr>`;
+        return;
+    }
 
-    // Calculate counts from the COMPLETE dataset
-    const pendingCount = sellers.filter(s => s.status === 'pending').length;
-    const approvedCount = sellers.filter(s => s.status === 'approved').length;
-    const rejectedCount = sellers.filter(s => s.status === 'rejected').length;
+    const getStatus = seller => (seller.status || '').trim().toLowerCase();
+    const pendingCount = sellers.filter(s => getStatus(s) === 'pending').length;
+    const approvedCount = sellers.filter(s => getStatus(s) === 'approved').length;
+    const rejectedCount = sellers.filter(s => getStatus(s) === 'rejected').length;
 
-    // Update UI counts
+    // Populate all seller dashboard summaries from the database response.
     const navBadge = document.getElementById('nav-pending-kyc-badge');
     if (navBadge) navBadge.innerText = pendingCount;
     const dashCount = document.getElementById('dash-kyc-count');
@@ -205,6 +210,10 @@ async function renderKycSellerTable() {
     if (statPending) statPending.innerText = pendingCount;
     const statApproved = document.getElementById('stat-approved-sellers');
     if (statApproved) statApproved.innerText = approvedCount;
+    const statRejected = document.getElementById('stat-rejected-sellers');
+    if (statRejected) statRejected.innerText = rejectedCount;
+    const statTotal = document.getElementById('stat-total-sellers');
+    if (statTotal) statTotal.innerText = sellers.length;
 
     const countPendingTab = document.getElementById('count-pending-tab');
     if (countPendingTab) countPendingTab.innerText = pendingCount;
@@ -213,9 +222,12 @@ async function renderKycSellerTable() {
     const countRejectedTab = document.getElementById('count-rejected-tab');
     if (countRejectedTab) countRejectedTab.innerText = rejectedCount;
 
+    renderDashboardActivity(sellers);
+    initSellerCategoryChart(sellers);
+
     // Filter by active tab status + search (done client-side now)
     const filtered = sellers.filter(s => {
-        const displayStatus = s.status ? s.status.toLowerCase() : 'pending';
+        const displayStatus = getStatus(s);
 
         const matchStatus = currentKycFilter === 'ALL' ||
             displayStatus === currentKycFilter.toLowerCase();
@@ -228,19 +240,21 @@ async function renderKycSellerTable() {
     });
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--text-muted);">No seller applications matching this criteria.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="seller-data-message">No seller applications match this filter.</td></tr>`;
         return;
     }
 
     tbody.innerHTML = filtered.map(s => {
         let statusBadge = '';
-        const displayStatus = s.status ? s.status.toLowerCase() : 'pending';
+        const displayStatus = getStatus(s);
         if (displayStatus === 'pending') {
             statusBadge = `<span class="badge badge-pending">Pending KYC Review</span>`;
         } else if (displayStatus === 'approved') {
             statusBadge = `<span class="badge badge-approved">Active Verified Seller</span>`;
-        } else {
+        } else if (displayStatus === 'rejected') {
             statusBadge = `<span class="badge badge-rejected">Application Rejected</span>`;
+        } else {
+            statusBadge = `<span class="badge">Status unavailable</span>`;
         }
 
         return `
@@ -293,12 +307,12 @@ function closeKycModal() {
 function switchKycDocTab(key) {
     activeKycDocKey = key;
     const seller = sellers.find(s => s.id === activeKycSellerId);
-    let docUrl = 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=600&auto=format&fit=crop&q=80';
+    let docUrl = '';
 
     if (seller && seller.documents) {
-        if (key === 'citizenship') docUrl = seller.documents.govId || docUrl;
-        if (key === 'regCert') docUrl = seller.documents.bizCert || docUrl;
-        if (key === 'taxClearance') docUrl = seller.documents.addressProof || docUrl;
+        if (key === 'citizenship') docUrl = seller.documents.govId || '';
+        if (key === 'regCert') docUrl = seller.documents.bizCert || '';
+        if (key === 'taxClearance') docUrl = seller.documents.addressProof || '';
     }
 
     ['citizenship', 'regCert', 'taxClearance'].forEach(k => {
@@ -306,11 +320,20 @@ function switchKycDocTab(key) {
         if (tabBtn) tabBtn.classList.toggle('active', k === key);
     });
 
-    document.getElementById('kyc-doc-img-preview').src = docUrl;
+    const preview = document.getElementById('kyc-doc-img-preview');
+    const emptyState = document.getElementById('kyc-doc-empty');
+    const fullSizeButton = document.getElementById('view-full-size-btn');
+    preview.hidden = !docUrl;
+    if (docUrl) preview.src = docUrl;
+    else preview.removeAttribute('src');
+    if (emptyState) emptyState.hidden = Boolean(docUrl);
+    if (fullSizeButton) fullSizeButton.disabled = !docUrl;
 }
 
 function openDocLightbox() {
-    const imgUrl = document.getElementById('kyc-doc-img-preview').src;
+    const preview = document.getElementById('kyc-doc-img-preview');
+    const imgUrl = preview.getAttribute('src');
+    if (!imgUrl || preview.hidden) return;
     document.getElementById('lightbox-img').src = imgUrl;
     document.getElementById('modal-lightbox').style.display = 'flex';
 }
@@ -334,7 +357,6 @@ async function approveSellerKyc() {
         if (result.success) {
             showToast(`Seller "${sellers.find(s => s.id === activeKycSellerId)?.storeName}" approved! Account upgraded to Active Seller.`, 'success');
             renderKycSellerTable();
-            renderDashboardActivity();
             closeKycModal();
         } else {
             showToast('Failed to approve application', 'danger');
@@ -378,7 +400,6 @@ async function submitKycRejection(e) {
         if (result.success) {
             showToast(`Seller application for "${sellers.find(s => s.id === activeKycSellerId)?.storeName}" was rejected. Notice sent.`, 'danger');
             renderKycSellerTable();
-            renderDashboardActivity();
             closeRejectReasonModal();
             closeKycModal();
         } else {
@@ -742,9 +763,14 @@ async function deleteSlide(id) {
 function renderProductsModerationTable() {
     const tbody = document.getElementById('products-moderation-tbody');
     const sidebarCount = document.getElementById('sidebar-product-count');
-    if (sidebarCount) sidebarCount.innerText = vendorProducts.length;
+    if (sidebarCount) sidebarCount.innerText = '—';
 
     if (!tbody) return;
+
+    if (vendorProducts.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="seller-data-message">Product data is not connected to the backend.</td></tr>';
+        return;
+    }
 
     tbody.innerHTML = vendorProducts.map(p => `
         <tr>
@@ -774,41 +800,142 @@ function toggleProductFeatured(id) {
     }
 }
 
-function renderPayoutsTable() {
+let payoutPeriodCode = '';
+
+async function renderPayoutsTable() {
     const tbody = document.getElementById('payouts-tbody');
     if (!tbody) return;
-    const data = [
-        { store: "Pashmina Elegance", sales: 85000, fee: 8500, net: 76500 },
-        { store: "Himalayan Craft Aalmari", sales: 42000, fee: 4200, net: 37800 },
-        { store: "Kathmandu Tech Central", sales: 57500, fee: 5750, net: 51750 }
-    ];
 
-    tbody.innerHTML = data.map(d => `
-        <tr>
-            <td class="cell-strong">${d.store}</td>
-            <td class="mono">NPR ${d.sales.toLocaleString()}</td>
-            <td class="mono" style="color:var(--success); font-weight:700;">NPR ${d.fee.toLocaleString()}</td>
-            <td class="mono cell-strong">NPR ${d.net.toLocaleString()}</td>
-            <td class="text-right">
-                <button onclick="showToast('Payout settled for ${d.store}', 'success')" class="btn btn-primary btn-sm">Release Settlement</button>
-            </td>
-        </tr>
-    `).join('');
+    try {
+        const response = await fetch('/api/admin/payouts');
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Payout API request failed');
+
+        payoutPeriodCode = data.periodCode || '';
+        const periodLabel = document.getElementById('payout-period');
+        if (periodLabel) periodLabel.textContent = data.period || '';
+
+        const commissionInput = document.getElementById('commission-percent');
+        if (commissionInput) commissionInput.value = Number(data.commissionPercent || 10).toFixed(2);
+
+        const queue = Array.isArray(data.queue) ? data.queue : [];
+        if (!queue.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="seller-data-message">No delivered seller earnings for the prior month.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = queue.map(row => {
+            const isPaid = row.status === 'PAID';
+            const bank = [row.bankName, row.accountHolder, row.accountIban].filter(Boolean).join(' · ') || 'Not provided';
+            return `<tr>
+                <td><strong>${escapePayoutText(row.storeName)}</strong></td>
+                <td>NPR ${Number(row.grossAmount || 0).toLocaleString('en-IN')}</td>
+                <td>${Number(row.commissionPercent || 0).toFixed(2)}% · NPR ${Number(row.commissionAmount || 0).toLocaleString('en-IN')}</td>
+                <td><strong>NPR ${Number(row.netAmount || 0).toLocaleString('en-IN')}</strong></td>
+                <td><span class="cell-muted">${escapePayoutText(bank)}</span></td>
+                <td><span class="badge ${isPaid ? 'badge-approved' : 'badge-pending'}">${isPaid ? 'Paid' : 'Pending'}</span></td>
+                <td class="text-right">
+                    ${isPaid
+                        ? `<span class="cell-muted">${escapePayoutText(row.reference || 'Settled')}</span>`
+                        : `<button type="button" class="btn btn-success btn-sm" onclick="settlePayout(${row.sellerId})">Mark paid</button>`}
+                </td>
+            </tr>`;
+        }).join('');
+    } catch (error) {
+        console.error(error);
+        tbody.innerHTML = '<tr><td colspan="7" class="seller-data-message">Unable to load payout records.</td></tr>';
+        showToast(error.message || 'Unable to load payout records', 'danger');
+    }
 }
 
-function updateCommissionRate() {
-    const val = document.getElementById('default-commission-rate').value;
-    showToast(`Default platform commission set to ${val}%`, 'success');
+function escapePayoutText(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 }
 
-async function renderDashboardActivity() {
+async function saveCommission() {
+    const input = document.getElementById('commission-percent');
+    if (!input) return;
+    const commissionPercent = Number(input.value);
+    if (!Number.isFinite(commissionPercent) || commissionPercent < 0 || commissionPercent > 100) {
+        showToast('Commission must be between 0 and 100 percent', 'danger');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/admin/payouts/commission', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ commissionPercent })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Could not save commission');
+        showToast(`Commission updated to ${commissionPercent}%`, 'success');
+        await renderPayoutsTable();
+    } catch (error) {
+        showToast(error.message, 'danger');
+    }
+}
+
+async function settlePayout(sellerId) {
+    const reference = window.prompt('Enter payout bank or transaction reference (optional):', '');
+    if (reference === null) return;
+
+    try {
+        const response = await fetch(`/api/admin/payouts/${sellerId}/settle`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ period: payoutPeriodCode, reference })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Could not settle payout');
+        showToast(`Payout marked paid: NPR ${Number(data.netAmount || 0).toLocaleString('en-IN')}`, 'success');
+        await renderPayoutsTable();
+    } catch (error) {
+        showToast(error.message, 'danger');
+    }
+}
+
+function setDashboardUnavailable() {
+    ['stat-total-sellers', 'stat-approved-sellers', 'stat-pending-kyc', 'stat-rejected-sellers', 'dash-kyc-count', 'nav-pending-kyc-badge'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.innerText = '—';
+    });
+    ['count-pending-tab', 'count-approved-tab', 'count-rejected-tab'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.innerText = '—';
+    });
+
+    const categoryCanvas = document.getElementById('categoryChart');
+    if (categoryCanvas) setChartMessage(categoryCanvas, 'Unable to load seller records.');
+
+    const activityList = document.getElementById('dashboard-activity-list');
+    if (activityList) activityList.innerHTML = '<p class="empty-note">Unable to load seller records.</p>';
+}
+
+function setChartMessage(canvas, message) {
+    canvas.hidden = Boolean(message);
+    let status = canvas.parentElement.querySelector('[data-chart-status]');
+    if (message) {
+        if (!status) {
+            status = document.createElement('p');
+            status.dataset.chartStatus = 'true';
+            status.className = 'chart-status';
+            canvas.parentElement.appendChild(status);
+        }
+        status.textContent = message;
+    } else if (status) {
+        status.remove();
+    }
+}
+
+function renderDashboardActivity(sellerRecords) {
     const container = document.getElementById('dashboard-activity-list');
     if (!container) return;
 
-    const pendingSellers = await fetchSellerDocumentation('pending');
+    const pendingSellers = sellerRecords.filter(seller => (seller.status || '').trim().toLowerCase() === 'pending');
 
     if (pendingSellers.length === 0) {
-        container.innerHTML = `<p class="empty-note">All pending seller verification requests handled.</p>`;
+        container.innerHTML = `<p class="empty-note">No sellers waiting for review.</p>`;
         return;
     }
 
@@ -817,43 +944,125 @@ async function renderDashboardActivity() {
             <div class="activity-left">
                 <div class="activity-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
                 <div>
-                    <p class="activity-title">${s.storeName} applied to become Seller</p>
-                    <p class="activity-sub">Applicant: ${s.accountHolder || s.userName} • Category: ${s.primaryCategory}</p>
+                    <p class="activity-title">${s.storeName || 'Unnamed store'}</p>
+                    <p class="activity-sub">Applicant: ${s.accountHolder || 'Not provided'} • Category: ${s.primaryCategory || 'Not provided'}</p>
                 </div>
             </div>
             <a href="javascript:void(0)" onclick="switchView('seller-kyc'); openKycModal(${s.id});" class="activity-link">
-                Review KYC Documents <i class="fa-solid fa-arrow-right"></i>
+                Review application <i class="fa-solid fa-arrow-right"></i>
             </a>
         </div>
     `).join('');
 }
 
-function initMarketplaceCharts() {
-    const canvas1 = document.getElementById('marketplaceChart');
-    const canvas2 = document.getElementById('categoryChart');
-    if (!canvas1 || !canvas2) return;
+let grossSalesChart = null;
+let sellerCategoryChart = null;
 
-    const ctx1 = canvas1.getContext('2d');
-    new Chart(ctx1, {
+async function loadSalesSummary() {
+    const salesValue = document.getElementById('stat-gmv');
+    const chartCanvas = document.getElementById('marketplaceChart');
+    if (!salesValue || !chartCanvas) return;
+
+    try {
+        const response = await fetch(`${SHOPPING_API_BASE_URL}/api/admin/sales/summary`);
+        if (!response.ok) {
+            throw new Error(`Sales summary request failed (${response.status})`);
+        }
+
+        const summary = await response.json();
+        if (summary.currency !== 'NPR' || !Number.isFinite(summary.grossSales) || !Array.isArray(summary.monthlySales)) {
+            throw new Error('Sales summary response has an invalid format');
+        }
+
+        salesValue.innerText = `NPR ${summary.grossSales.toLocaleString('en-IN')}`;
+        const monthlySales = summary.monthlySales.filter(item =>
+            typeof item.month === 'string' && Number.isFinite(item.grossSales)
+        );
+        if (monthlySales.length !== summary.monthlySales.length) {
+            throw new Error('Sales summary contains invalid monthly values');
+        }
+        initGrossSalesChart(monthlySales);
+    } catch (error) {
+        console.error('Error fetching gross sales summary:', error);
+        salesValue.innerText = 'NPR —';
+        setChartMessage(chartCanvas, 'Sales data unavailable. Check the Aalmari Shopping connection.');
+    }
+}
+
+function initGrossSalesChart(monthlySales) {
+    const canvas = document.getElementById('marketplaceChart');
+    if (!canvas) return;
+    if (grossSalesChart) grossSalesChart.destroy();
+    setChartMessage(canvas, monthlySales.length ? '' : 'No monthly sales data is available.');
+
+    if (monthlySales.length === 0) return;
+
+    grossSalesChart = new Chart(canvas.getContext('2d'), {
         type: 'line',
         data: {
-            labels: ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'],
-            datasets: [
-                { label: 'GMV Gross Volume (NPR)', data: [85000, 110000, 135000, 150000, 168000, 184500], borderColor: '#6366f1', backgroundColor: 'rgba(99, 102, 241, 0.1)', fill: true, tension: 0.3 },
-                { label: 'Aalmari Fee (10%)', data: [8500, 11000, 13500, 15000, 16800, 18450], borderColor: '#10b981', backgroundColor: 'transparent', tension: 0.3 }
-            ]
+            labels: monthlySales.map(item => item.month),
+            datasets: [{
+                label: 'Gross sales (NPR)',
+                data: monthlySales.map(item => item.grossSales),
+                borderColor: '#ea6300',
+                backgroundColor: 'rgba(234, 99, 0, 0.10)',
+                borderWidth: 2,
+                pointRadius: 3,
+                pointBackgroundColor: '#ea6300',
+                fill: true,
+                tension: 0.3
+            }]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { font: { size: 10 } } } } }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                x: { grid: { display: false }, border: { color: '#e7e2dc' }, ticks: { color: '#57534e', font: { family: 'DM Sans', size: 11 } } },
+                y: { beginAtZero: true, border: { display: false }, grid: { color: '#e7e2dc' }, ticks: { color: '#57534e', font: { family: 'DM Sans', size: 11 }, callback: value => `NPR ${Number(value).toLocaleString('en-IN')}` } }
+            },
+            plugins: {
+                legend: { position: 'top', align: 'start', labels: { usePointStyle: true, boxWidth: 8, color: '#57534e', font: { family: 'DM Sans', size: 11 } } },
+                tooltip: { backgroundColor: '#1c1917', titleFont: { family: 'DM Sans' }, bodyFont: { family: 'DM Sans' }, padding: 10, cornerRadius: 6, callbacks: { label: context => `NPR ${Number(context.parsed.y).toLocaleString('en-IN')}` } }
+            }
+        }
+    });
+}
+
+function initSellerCategoryChart(sellerRecords) {
+    const canvas = document.getElementById('categoryChart');
+    if (!canvas) return;
+    if (sellerCategoryChart) sellerCategoryChart.destroy();
+
+    const categoryApplications = new Map();
+    sellerRecords.forEach(seller => {
+        const category = (seller.primaryCategory || '').trim();
+        if (category) {
+            categoryApplications.set(category, (categoryApplications.get(category) || 0) + 1);
+        }
     });
 
-    const ctx2 = canvas2.getContext('2d');
-    new Chart(ctx2, {
+    const categoryEntries = [...categoryApplications.entries()].sort((a, b) => b[1] - a[1]);
+    const categoryColors = ['#ea6300', '#f59e0b', '#c2410c', '#292524'];
+
+    setChartMessage(canvas, categoryEntries.length ? '' : 'Seller categories are not available.');
+    if (categoryEntries.length === 0) return;
+
+    sellerCategoryChart = new Chart(canvas.getContext('2d'), {
         type: 'doughnut',
         data: {
-            labels: ['Apparel', 'Handicrafts', 'Electronics', 'Jewelry'],
-            datasets: [{ data: [45, 25, 20, 10], backgroundColor: ['#6366f1', '#f59e0b', '#10b981', '#ef4444'], borderWidth: 0 }]
+            labels: categoryEntries.map(([category]) => category),
+            datasets: [{ data: categoryEntries.map(([, count]) => count), backgroundColor: categoryEntries.map((_, index) => categoryColors[index % categoryColors.length]), borderColor: '#ffffff', borderWidth: 3, hoverOffset: 3 }]
         },
-        options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '68%',
+            plugins: {
+                legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, color: '#57534e', font: { family: 'DM Sans', size: 11 }, padding: 12 } },
+                tooltip: { backgroundColor: '#1c1917', titleFont: { family: 'DM Sans' }, bodyFont: { family: 'DM Sans' }, padding: 10, cornerRadius: 6 }
+            }
+        }
     });
 }
 

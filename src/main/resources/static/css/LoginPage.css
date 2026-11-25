@@ -1,0 +1,109 @@
+:root {
+    font-family: "Segoe UI", Arial, sans-serif;
+    color: #1c1917;
+    background: #faf8f5;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    min-height: 100vh;
+    margin: 0;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+}
+
+.login-card {
+    width: min(100%, 420px);
+    padding: 36px;
+    background: #fff;
+    border: 1px solid #e7e2dc;
+    border-radius: 12px;
+    box-shadow: 0 16px 48px rgb(28 25 23 / 8%);
+}
+
+.brand {
+    color: #c94f00;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+.brand span {
+    display: block;
+    margin-top: 4px;
+    color: #78716c;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+}
+
+h1 {
+    margin: 32px 0 8px;
+    font-size: 26px;
+}
+
+.intro {
+    margin: 0 0 24px;
+    color: #57534e;
+}
+
+form {
+    display: grid;
+    gap: 10px;
+}
+
+label {
+    margin-top: 8px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+input {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid #d6d3d1;
+    border-radius: 6px;
+    font: inherit;
+}
+
+input:focus-visible,
+button:focus-visible {
+    outline: 2px solid #ea6300;
+    outline-offset: 2px;
+}
+
+button {
+    min-height: 44px;
+    margin-top: 16px;
+    border: 0;
+    border-radius: 6px;
+    background: #c94f00;
+    color: #fff;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #a94200;
+}
+
+.message {
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.error {
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.success {
+    background: #f0fdf4;
+    color: #166534;
+}

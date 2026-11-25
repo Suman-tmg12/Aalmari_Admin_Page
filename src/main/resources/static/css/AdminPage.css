@@ -1360,6 +1360,36 @@ input:checked + .slider-toggle:before {
     color: var(--orange-600);
 }
 
+.product-status-toggle {
+    min-height: 36px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--ink-600);
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+.product-status-toggle:hover {
+    border-color: var(--orange-500);
+    color: var(--orange-600);
+}
+
+.product-status-toggle.approve {
+    border-color: #bbf7d0;
+    color: var(--success);
+}
+
+.product-status-toggle.reject {
+    border-color: #fecaca;
+    color: var(--danger);
+}
+
+.product-status-toggle:disabled {
+    cursor: wait;
+    opacity: 0.6;
+}
+
 #toast-container {
     position: fixed;
     z-index: 1200;

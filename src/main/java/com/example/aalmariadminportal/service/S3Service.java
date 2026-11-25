@@ -4,12 +4,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.core.exception.SdkException;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -39,13 +42,23 @@ public class S3Service {
 
     private S3Client getS3Client() {
         if (this.s3Client == null) {
-            this.s3Client = S3Client.builder()
-                    .region(Region.of(region))
-                    .credentialsProvider(StaticCredentialsProvider.create(
-                            AwsBasicCredentials.create(accessKeyId, secretAccessKey)))
-                    .build();
+            S3ClientBuilder builder = S3Client.builder()
+                    .region(Region.of(region));
+
+            if (hasText(accessKeyId) && hasText(secretAccessKey)) {
+                builder.credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(accessKeyId, secretAccessKey)));
+            } else {
+                builder.credentialsProvider(DefaultCredentialsProvider.create());
+            }
+
+            this.s3Client = builder.build();
         }
         return this.s3Client;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     public String uploadFile(MultipartFile file, String folder) throws IOException {
@@ -74,6 +87,8 @@ public class S3Service {
 
         } catch (S3Exception e) {
             throw new IOException("Failed to upload file to S3: " + e.getMessage());
+        } catch (SdkException e) {
+            throw new IOException("AWS credentials or S3 configuration is invalid: " + e.getMessage());
         }
     }
 }

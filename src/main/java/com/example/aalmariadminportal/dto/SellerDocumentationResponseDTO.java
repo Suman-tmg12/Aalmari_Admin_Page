@@ -20,7 +20,7 @@ public class SellerDocumentationResponseDTO {
     private String taxId;
     private String accountHolder;
     private String bankName;
-    private String accountIban;
+    private String accountIbanMasked;
     private String status;
     private String rejectionReason;
     private LocalDateTime createdAt;
@@ -49,7 +49,7 @@ public class SellerDocumentationResponseDTO {
         dto.setTaxId(doc.getTaxId());
         dto.setAccountHolder(doc.getAccountHolder());
         dto.setBankName(doc.getBankName());
-        dto.setAccountIban(doc.getAccountIban());
+        dto.setAccountIbanMasked(doc.getAccountIbanMasked());
         dto.setStatus(doc.getStatus());
         dto.setRejectionReason(doc.getRejectionReason());
         dto.setCreatedAt(doc.getCreatedAt());

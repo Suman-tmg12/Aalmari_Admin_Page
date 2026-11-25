@@ -62,8 +62,11 @@ public class SellerDocumentation {
     @Column(name = "bank_name")
     private String bankName;
 
-    @Column(name = "account_iban")
+    @Column(name = "account_iban", length = 512)
     private String accountIban;
+
+    @Column(name = "account_iban_masked", length = 50)
+    private String accountIbanMasked;
 
     @Column(name = "agree_terms")
     private Boolean agreeTerms;

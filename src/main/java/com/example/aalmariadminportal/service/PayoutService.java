@@ -23,13 +23,16 @@ public class PayoutService {
     private final JdbcTemplate jdbcTemplate;
     private final CommissionSettingRepository commissionRepository;
     private final PayoutSettlementRepository payoutRepository;
+    private final AdminCryptoService adminCryptoService;
 
     public PayoutService(JdbcTemplate jdbcTemplate,
                          CommissionSettingRepository commissionRepository,
-                         PayoutSettlementRepository payoutRepository) {
+                         PayoutSettlementRepository payoutRepository,
+                         AdminCryptoService adminCryptoService) {
         this.jdbcTemplate = jdbcTemplate;
         this.commissionRepository = commissionRepository;
         this.payoutRepository = payoutRepository;
+        this.adminCryptoService = adminCryptoService;
     }
 
     public Map<String, Object> getPayoutData() {
@@ -211,7 +214,12 @@ public class PayoutService {
             result.put("storeName", row.get("store_name") == null ? "Seller #" + sellerId : row.get("store_name"));
             result.put("accountHolder", row.get("account_holder") == null ? "" : row.get("account_holder"));
             result.put("bankName", row.get("bank_name") == null ? "" : row.get("bank_name"));
-            result.put("account_iban", row.get("account_iban") == null ? "" : row.get("account_iban"));
+            try {
+                String encryptedAccount = row.get("account_iban") == null ? "" : String.valueOf(row.get("account_iban"));
+                result.put("accountIban", adminCryptoService.decrypt(encryptedAccount));
+            } catch (IllegalStateException e) {
+                result.put("accountIban", "Unavailable");
+            }
         }
         return result;
     }

@@ -3,6 +3,8 @@ let sellers = [];
 let heroSlides = []; // Start empty, will fetch from backend
 
 let vendorProducts = [];
+let productModerationState = 'loading';
+let productModerationError = '';
 
 let activeKycSellerId = null;
 let activeKycDocKey = 'citizenship';
@@ -10,11 +12,33 @@ let currentKycFilter = 'Pending';
 let mockSlideIndex = 0;
 const SHOPPING_API_BASE_URL = document.querySelector('meta[name="aalmari-shopping-api-base"]')?.content.replace(/\/+$/, '') || '';
 
+function adminFetch(resource, options = {}) {
+    const requestOptions = { ...options };
+    const method = (requestOptions.method || 'GET').toUpperCase();
+
+    if (!['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method)) {
+        const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+        const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+        if (csrfToken && csrfHeader) {
+            const headers = new Headers(requestOptions.headers || {});
+            headers.set(csrfHeader, csrfToken);
+            requestOptions.headers = headers;
+        }
+    }
+
+    return fetch(resource, requestOptions).then(response => {
+        if (response.status === 401) {
+            window.location.assign('/login');
+        }
+        return response;
+    });
+}
+
 window.onload = function() {
     renderKycSellerTable();
     loadSalesSummary();
     fetchHeroSlides(); // Fetch from backend instead of hardcoded
-    renderProductsModerationTable();
+    loadModerationProducts();
     renderPayoutsTable();
     const saveCommissionButton = document.getElementById('save-commission-btn');
     if (saveCommissionButton) saveCommissionButton.addEventListener('click', saveCommission);
@@ -165,7 +189,7 @@ async function fetchSellerDocumentation(status = null) {
         url = `/api/admin/seller-documentation/status/${status.toLowerCase()}`;
     }
 
-    const response = await fetch(url);
+    const response = await adminFetch(url);
     if (!response.ok) {
         throw new Error(`Failed to fetch seller documentation (${response.status})`);
     }
@@ -294,10 +318,26 @@ function openKycModal(id) {
     document.getElementById('kyc-info-user').innerText = seller.accountHolder || seller.userName || 'N/A';
     document.getElementById('kyc-info-phone').innerText = seller.phoneNumber || 'N/A';
     document.getElementById('kyc-info-bank').innerText = seller.bankName || 'N/A';
-    document.getElementById('kyc-info-acc').innerText = seller.accountIban || 'N/A';
+    document.getElementById('kyc-info-acc').innerText = seller.accountIbanMasked ? 'Loading…' : 'N/A';
+
+    revealSellerBankAccount(id);
 
     switchKycDocTab('citizenship');
     document.getElementById('modal-seller-kyc').classList.add('active');
+}
+
+async function revealSellerBankAccount(documentationId) {
+    try {
+        const response = await adminFetch(`/api/admin/seller-documentation/${documentationId}/reveal-bank`);
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.message || 'Could not reveal account number');
+        if (activeKycSellerId !== documentationId) return;
+        document.getElementById('kyc-info-acc').innerText = data.accountIban || 'N/A';
+    } catch (error) {
+        if (activeKycSellerId !== documentationId) return;
+        document.getElementById('kyc-info-acc').innerText = 'Unavailable';
+        showToast(error.message, 'danger');
+    }
 }
 
 function closeKycModal() {
@@ -346,7 +386,7 @@ async function approveSellerKyc() {
     if (!activeKycSellerId) return;
 
     try {
-        const response = await fetch(`/api/admin/seller-documentation/${activeKycSellerId}/approve`, {
+        const response = await adminFetch(`/api/admin/seller-documentation/${activeKycSellerId}/approve`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -388,7 +428,7 @@ async function submitKycRejection(e) {
     const note = document.getElementById('reject-custom-note').value;
 
     try {
-        const response = await fetch(`/api/admin/seller-documentation/${activeKycSellerId}/reject`, {
+        const response = await adminFetch(`/api/admin/seller-documentation/${activeKycSellerId}/reject`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -418,7 +458,7 @@ async function submitKycRejection(e) {
 // Fetch hero slides from backend
 async function fetchHeroSlides() {
     try {
-        const response = await fetch('/api/admin/hero-slides');
+        const response = await adminFetch('/api/admin/hero-slides');
         const result = await response.json();
 
         if (result.success && result.slides) {
@@ -632,7 +672,7 @@ async function handleSlideSubmit(e) {
 
             showToast('Uploading image...', 'info');
 
-            const uploadResponse = await fetch('/api/admin/upload-slide-image', {
+            const uploadResponse = await adminFetch('/api/admin/upload-slide-image', {
                 method: 'POST',
                 body: formData
             });
@@ -674,7 +714,7 @@ async function handleSlideSubmit(e) {
         }
 
         // Save slide to backend
-        const response = await fetch('/api/admin/hero-slides', {
+        const response = await adminFetch('/api/admin/hero-slides', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -708,7 +748,7 @@ async function handleSlideSubmit(e) {
 // ============================================
 async function toggleSlideActive(id) {
     try {
-        const response = await fetch(`/api/admin/hero-slides/${id}/toggle`, {
+        const response = await adminFetch(`/api/admin/hero-slides/${id}/toggle`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -738,7 +778,7 @@ async function deleteSlide(id) {
     }
 
     try {
-        const response = await fetch(`/api/admin/hero-slides/${id}`, {
+        const response = await adminFetch(`/api/admin/hero-slides/${id}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'
@@ -760,43 +800,138 @@ async function deleteSlide(id) {
 }
 
 /* Product Moderation & Payout Logic */
+async function loadModerationProducts() {
+    productModerationState = 'loading';
+    productModerationError = '';
+    renderProductsModerationTable();
+
+    try {
+        const response = await adminFetch('/api/admin/products');
+        if (!response.ok) {
+            throw new Error(`Failed to load product records (${response.status})`);
+        }
+
+        const products = await response.json();
+        if (!Array.isArray(products)) {
+            throw new Error('The product API returned an invalid response.');
+        }
+
+        vendorProducts = products;
+        productModerationState = 'loaded';
+    } catch (error) {
+        console.error('Error loading products for moderation:', error);
+        productModerationError = error.message || 'Could not load products.';
+        productModerationState = 'error';
+    }
+
+    renderProductsModerationTable();
+}
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, character => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    })[character]);
+}
+
 function renderProductsModerationTable() {
     const tbody = document.getElementById('products-moderation-tbody');
     const sidebarCount = document.getElementById('sidebar-product-count');
-    if (sidebarCount) sidebarCount.innerText = '—';
 
     if (!tbody) return;
 
+    if (productModerationState === 'loading') {
+        if (sidebarCount) sidebarCount.innerText = '—';
+        tbody.innerHTML = '<tr><td colspan="8" class="seller-data-message">Loading products…</td></tr>';
+        return;
+    }
+
+    if (productModerationState === 'error') {
+        if (sidebarCount) sidebarCount.innerText = '!';
+        tbody.innerHTML = `<tr><td colspan="8" class="seller-data-message">${escapeHtml(productModerationError)} <button type="button" class="product-status-toggle" onclick="loadModerationProducts()">Retry</button></td></tr>`;
+        return;
+    }
+
+    if (sidebarCount) {
+        sidebarCount.innerText = String(vendorProducts.filter(product => product.approvalStatus === 'PENDING').length);
+    }
+
     if (vendorProducts.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="seller-data-message">Product data is not connected to the backend.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="seller-data-message">No vendor products found.</td></tr>';
         return;
     }
 
     tbody.innerHTML = vendorProducts.map(p => `
         <tr>
-            <td class="cell-strong">${p.title}</td>
-            <td>${p.store}</td>
-            <td class="cell-muted">${p.category}</td>
-            <td class="cell-strong">NPR ${p.price.toLocaleString()}</td>
-            <td>${p.stock} units</td>
+            <td class="cell-strong">${escapeHtml(p.title)}</td>
+            <td>${escapeHtml(p.store)}</td>
+            <td class="cell-muted">${escapeHtml(p.category)}</td>
+            <td class="cell-strong">NPR ${Number(p.price).toLocaleString('en-IN')}</td>
+            <td>${Number(p.stock).toLocaleString('en-IN')} units</td>
             <td>
-                <span class="badge ${p.status === 'Approved' ? 'badge-approved' : 'badge-pending'}">${p.status}</span>
+                <span class="badge ${p.approvalStatus === 'APPROVED' ? 'badge-approved' : p.approvalStatus === 'REJECTED' ? 'badge-rejected' : 'badge-pending'}">${escapeHtml(p.approvalStatus)}</span>
             </td>
             <td class="text-right">
-                <button onclick="toggleProductFeatured(${p.id})" class="feature-toggle ${p.featured ? 'active' : ''}">
-                    ${p.featured ? '★ Featured' : '☆ Feature'}
+                <button type="button" onclick="setProductActive(${Number(p.id)}, ${!p.active})" class="product-status-toggle">
+                    ${p.active ? 'Deactivate' : 'Activate'}
                 </button>
+            </td>
+            <td class="text-right">
+                ${p.approvalStatus !== 'APPROVED' ? `<button type="button" onclick="setProductApprovalStatus(${Number(p.id)}, 'APPROVED')" class="product-status-toggle approve">Approve</button>` : ''}
+                ${p.approvalStatus !== 'REJECTED' ? `<button type="button" onclick="setProductApprovalStatus(${Number(p.id)}, 'REJECTED')" class="product-status-toggle reject">Reject</button>` : ''}
             </td>
         </tr>
     `).join('');
 }
 
-function toggleProductFeatured(id) {
-    const p = vendorProducts.find(item => item.id === id);
-    if (p) {
-        p.featured = !p.featured;
-        showToast(`Product featured status updated`, 'info');
+async function setProductActive(id, active) {
+    try {
+        const response = await adminFetch(`/api/admin/products/${id}/active`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ active })
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || `Product update failed (${response.status})`);
+        }
+
+        const productIndex = vendorProducts.findIndex(product => product.id === id);
+        if (productIndex !== -1) {
+            vendorProducts[productIndex] = result;
+        }
+        showToast(`Product ${active ? 'activated' : 'deactivated'}`, 'success');
         renderProductsModerationTable();
+    } catch (error) {
+        console.error('Error updating product listing status:', error);
+        showToast(error.message || 'Could not update product status.', 'danger');
+    }
+}
+
+async function setProductApprovalStatus(id, status) {
+    try {
+        const response = await adminFetch(`/api/admin/products/${id}/approval`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || `Product moderation failed (${response.status})`);
+        }
+
+        const productIndex = vendorProducts.findIndex(product => product.id === id);
+        if (productIndex !== -1) {
+            vendorProducts[productIndex] = result;
+        }
+        showToast(`Product ${status.toLowerCase()}`, 'success');
+        renderProductsModerationTable();
+    } catch (error) {
+        console.error('Error moderating product:', error);
+        showToast(error.message || 'Could not update product approval.', 'danger');
     }
 }
 
@@ -807,7 +942,7 @@ async function renderPayoutsTable() {
     if (!tbody) return;
 
     try {
-        const response = await fetch('/api/admin/payouts');
+        const response = await adminFetch('/api/admin/payouts');
         const data = await response.json();
         if (!response.ok) throw new Error(data.message || 'Payout API request failed');
 
@@ -862,7 +997,7 @@ async function saveCommission() {
     }
 
     try {
-        const response = await fetch('/api/admin/payouts/commission', {
+        const response = await adminFetch('/api/admin/payouts/commission', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ commissionPercent })
@@ -881,7 +1016,7 @@ async function settlePayout(sellerId) {
     if (reference === null) return;
 
     try {
-        const response = await fetch(`/api/admin/payouts/${sellerId}/settle`, {
+        const response = await adminFetch(`/api/admin/payouts/${sellerId}/settle`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ period: payoutPeriodCode, reference })

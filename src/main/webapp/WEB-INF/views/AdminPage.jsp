@@ -1,15 +1,23 @@
 <%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" language="java" isELIgnored="true" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ page import="org.springframework.security.web.csrf.CsrfToken" %>
+<%
+    CsrfToken csrfToken = (CsrfToken) request.getAttribute("_csrf");
+%>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <% if (csrfToken != null) { %>
+    <meta name="_csrf" content="<%= csrfToken.getToken() %>">
+    <meta name="_csrf_header" content="<%= csrfToken.getHeaderName() %>">
+    <% } %>
     <title>Aalmari Multi-Vendor Marketplace - Admin Portal</title>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Design System Stylesheet (replaces Tailwind) -->
-    <link rel="stylesheet" href="<%= request.getContextPath() %>/css/AdminPage.css?v=20261122-0834">
+    <link rel="stylesheet" href="<%= request.getContextPath() %>/css/AdminPage.css?v=20261125-1740">
     <meta name="aalmari-shopping-api-base" content="http://localhost:8080">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -122,10 +130,18 @@
                     <div class="user-profile">
                         <img class="avatar" src="<%= request.getContextPath() %>/images/admin-profile.svg?v=20261121" alt="Super Admin">
                         <div class="user-info">
-                            <h4>Super Admin</h4>
+                            <h4><%= request.getUserPrincipal().getName() %></h4>
                             <p>Aalmari Operations</p>
                         </div>
                     </div>
+                    <form action="<%= request.getContextPath() %>/logout" method="post">
+                        <% if (csrfToken != null) { %>
+                        <input type="hidden" name="<%= csrfToken.getParameterName() %>" value="<%= csrfToken.getToken() %>">
+                        <% } %>
+                        <button class="icon-btn" type="submit" title="Sign out" aria-label="Sign out">
+                            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                        </button>
+                    </form>
                 </div>
             </header>
 
@@ -297,7 +313,7 @@
                     <div class="info-card">
                         <h4 style="color:var(--secondary);">Contact &amp; Payout Bank Details</h4>
                         <div class="info-grid">
-                            <div><span class="label">Applicant Name</span><span id="kyc-info-user" class="value">-</span></div>
+                            <div><span class="label">Account Holder's Name</span><span id="kyc-info-user" class="value">-</span></div>
                             <div><span class="label">Phone Number</span><span id="kyc-info-phone" class="value">-</span></div>
                             <div><span class="label">Payout Bank</span><span id="kyc-info-bank" class="value">-</span></div>
                             <div><span class="label">Account Number</span><span id="kyc-info-acc" class="value mono">-</span></div>
@@ -447,6 +463,6 @@
     </div>
 
     <!-- JAVASCRIPT APP LOGIC -->
-<script src="/js/AdminPage.js?v=20261122-0834"></script>
+<script src="/js/AdminPage.js?v=20261125-1740"></script>
 </body>
 </html>

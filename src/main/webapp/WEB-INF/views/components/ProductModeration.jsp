@@ -3,7 +3,7 @@
                     <div class="page-header">
                         <div>
                             <h1>Vendor Product Moderation</h1>
-                            <p>Product records are not available from the backend.</p>
+                            <p>Activate or deactivate vendor listings. Changes are saved immediately.</p>
                         </div>
                     </div>
 
@@ -18,6 +18,7 @@
                                         <th>Price</th>
                                         <th>Stock</th>
                                         <th>Approval Status</th>
+                                        <th>Listing Status</th>
                                         <th class="text-right">Moderation Actions</th>
                                     </tr>
                                 </thead>

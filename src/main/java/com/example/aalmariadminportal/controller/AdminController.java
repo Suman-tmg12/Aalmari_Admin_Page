@@ -2,15 +2,21 @@ package com.example.aalmariadminportal.controller;
 
 import com.example.aalmariadminportal.dto.SellerDocumentationResponseDTO;
 import com.example.aalmariadminportal.model.HeroSlide;
+import com.example.aalmariadminportal.model.SellerDocumentation;
+import com.example.aalmariadminportal.repository.SellerDocumentationRepository;
+import com.example.aalmariadminportal.service.AdminCryptoService;
 import com.example.aalmariadminportal.service.HeroSlideService;
 import com.example.aalmariadminportal.service.S3Service;
 import com.example.aalmariadminportal.service.SellerDocumentationService;
 import com.example.aalmariadminportal.service.PayoutService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,8 +27,16 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/admin")
 public class AdminController {
 
+    private static final Logger logger = LoggerFactory.getLogger(AdminController.class);
+
     @Autowired
     private SellerDocumentationService documentationService;
+
+    @Autowired
+    private SellerDocumentationRepository sellerDocumentationRepository;
+
+    @Autowired
+    private AdminCryptoService adminCryptoService;
 
     @Autowired
     private S3Service s3Service;
@@ -42,6 +56,35 @@ public class AdminController {
     public ResponseEntity<List<SellerDocumentationResponseDTO>> getAllSellerDocumentation() {
         List<SellerDocumentationResponseDTO> applications = documentationService.getAllApplications();
         return ResponseEntity.ok(applications);
+    }
+
+    @GetMapping("/seller-documentation/{id}/reveal-bank")
+    public ResponseEntity<Map<String, Object>> revealBankByDocumentationId(@PathVariable Long id) {
+        Optional<SellerDocumentation> documentation = sellerDocumentationRepository.findById(id);
+        if (documentation.isEmpty()) {
+            return ResponseEntity.status(404).body(Map.of("success", false, "message", "Seller documentation not found"));
+        }
+
+        try {
+            SellerDocumentation doc = documentation.get();
+            String plainAccount = adminCryptoService.decrypt(doc.getAccountIban());
+            logger.info("Admin reveal account number: sellerId={}, documentationId={}, timestamp={}",
+                    doc.getUserId(), doc.getId(), LocalDateTime.now());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("accountIban", plainAccount);
+            return ResponseEntity.ok(response);
+        } catch (IllegalStateException e) {
+            logger.warn("Unable to decrypt bank account for seller documentation id {}. "
+                    + "Verify APP_CRYPTO_KEY matches Aalmari Shopping and the key used for this record.", id, e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("accountIban", documentation.map(SellerDocumentation::getAccountIbanMasked).orElse("Unavailable"));
+            response.put("decryptionAvailable", false);
+            response.put("message", "Full account number is unavailable; showing the stored masked value.");
+            return ResponseEntity.ok(response);
+        }
     }
 
     // Get applications by status (pending, approved, rejected)

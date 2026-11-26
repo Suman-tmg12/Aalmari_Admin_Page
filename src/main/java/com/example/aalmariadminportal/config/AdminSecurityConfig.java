@@ -3,6 +3,7 @@ package com.example.aalmariadminportal.config;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.ServletContextInitializer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -18,6 +19,13 @@ import org.springframework.util.StringUtils;
 
 @Configuration
 public class AdminSecurityConfig {
+
+    private static final String ADMIN_SESSION_COOKIE_NAME = "AALMARI_ADMIN_SESSION";
+
+    @Bean
+    ServletContextInitializer adminSessionCookieInitializer() {
+        return servletContext -> servletContext.getSessionCookieConfig().setName(ADMIN_SESSION_COOKIE_NAME);
+    }
 
     @Bean
     PasswordEncoder passwordEncoder() {
@@ -62,7 +70,7 @@ public class AdminSecurityConfig {
                         .logoutSuccessUrl("/login?logout")
                         .invalidateHttpSession(true)
                         .clearAuthentication(true)
-                        .deleteCookies("JSESSIONID")
+                        .deleteCookies(ADMIN_SESSION_COOKIE_NAME)
                         .permitAll())
                 .exceptionHandling(exceptions -> exceptions
                         .accessDeniedHandler(loginCsrfFailureHandler())

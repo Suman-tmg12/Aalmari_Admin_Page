@@ -5,6 +5,13 @@ let heroSlides = []; // Start empty, will fetch from backend
 let vendorProducts = [];
 let productModerationState = 'loading';
 let productModerationError = '';
+const PRODUCT_MODERATION_PAGE_SIZE = 25;
+let productModerationPage = {
+    page: 0,
+    totalPages: 0,
+    totalElements: 0,
+    pendingCount: 0
+};
 
 let activeKycSellerId = null;
 let activeKycDocKey = 'citizenship';
@@ -35,6 +42,7 @@ function adminFetch(resource, options = {}) {
 }
 
 window.onload = function() {
+    setupAdminProfileAvatar();
     renderKycSellerTable();
     loadSalesSummary();
     fetchHeroSlides(); // Fetch from backend instead of hardcoded
@@ -146,6 +154,53 @@ window.onload = function() {
         });
     }
 };
+
+function setupAdminProfileAvatar() {
+    const button = document.getElementById('admin-avatar-button');
+    const fileInput = document.getElementById('admin-avatar-file');
+    const avatar = document.getElementById('admin-avatar');
+    if (!button || !fileInput || !avatar) return;
+
+    button.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async () => {
+        const file = fileInput.files?.[0];
+        if (!file) return;
+
+        if (!['image/png', 'image/jpeg'].includes(file.type)) {
+            showToast('Choose a PNG or JPEG image.', 'danger');
+            fileInput.value = '';
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            showToast('Profile pictures must be 5 MB or smaller.', 'danger');
+            fileInput.value = '';
+            return;
+        }
+
+        button.disabled = true;
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const response = await adminFetch('/api/admin/profile/avatar', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.message || `Profile picture upload failed (${response.status})`);
+            }
+
+            avatar.src = result.avatarUrl;
+            showToast('Profile picture updated.', 'success');
+        } catch (error) {
+            console.error('Error uploading admin profile picture:', error);
+            showToast(error.message || 'Could not update profile picture.', 'danger');
+        } finally {
+            button.disabled = false;
+            fileInput.value = '';
+        }
+    });
+}
 
 function switchView(viewName) {
     const views = ['dashboard', 'seller-kyc', 'homepage-cms', 'product-moderation', 'payouts', 'settings'];
@@ -800,23 +855,35 @@ async function deleteSlide(id) {
 }
 
 /* Product Moderation & Payout Logic */
-async function loadModerationProducts() {
+async function loadModerationProducts(page = productModerationPage.page) {
     productModerationState = 'loading';
     productModerationError = '';
     renderProductsModerationTable();
 
     try {
-        const response = await adminFetch('/api/admin/products');
+        const response = await adminFetch(
+            `/api/admin/products?page=${page}&size=${PRODUCT_MODERATION_PAGE_SIZE}`);
         if (!response.ok) {
             throw new Error(`Failed to load product records (${response.status})`);
         }
 
-        const products = await response.json();
-        if (!Array.isArray(products)) {
-            throw new Error('The product API returned an invalid response.');
+        const result = await response.json();
+        if (Array.isArray(result)) {
+            throw new Error('The admin server is running an older product API. Restart AalmariAdminPortal to enable pagination.');
+        }
+        if (!result || !Array.isArray(result.content)
+                || !Number.isInteger(result.page) || !Number.isInteger(result.totalPages)
+                || !Number.isFinite(result.totalElements) || !Number.isFinite(result.pendingCount)) {
+            throw new Error('The product API returned an invalid paginated response. Restart AalmariAdminPortal and try again.');
         }
 
-        vendorProducts = products;
+        vendorProducts = result.content;
+        productModerationPage = {
+            page: result.page,
+            totalPages: result.totalPages,
+            totalElements: result.totalElements,
+            pendingCount: result.pendingCount
+        };
         productModerationState = 'loaded';
     } catch (error) {
         console.error('Error loading products for moderation:', error);
@@ -825,6 +892,11 @@ async function loadModerationProducts() {
     }
 
     renderProductsModerationTable();
+}
+
+function changeModerationPage(page) {
+    if (page < 0 || page >= productModerationPage.totalPages || page === productModerationPage.page) return;
+    loadModerationProducts(page);
 }
 
 function escapeHtml(value) {
@@ -840,27 +912,31 @@ function escapeHtml(value) {
 function renderProductsModerationTable() {
     const tbody = document.getElementById('products-moderation-tbody');
     const sidebarCount = document.getElementById('sidebar-product-count');
+    const pagination = document.getElementById('products-moderation-pagination');
 
     if (!tbody) return;
 
     if (productModerationState === 'loading') {
         if (sidebarCount) sidebarCount.innerText = '—';
         tbody.innerHTML = '<tr><td colspan="8" class="seller-data-message">Loading products…</td></tr>';
+        if (pagination) pagination.innerHTML = '';
         return;
     }
 
     if (productModerationState === 'error') {
         if (sidebarCount) sidebarCount.innerText = '!';
         tbody.innerHTML = `<tr><td colspan="8" class="seller-data-message">${escapeHtml(productModerationError)} <button type="button" class="product-status-toggle" onclick="loadModerationProducts()">Retry</button></td></tr>`;
+        if (pagination) pagination.innerHTML = '';
         return;
     }
 
     if (sidebarCount) {
-        sidebarCount.innerText = String(vendorProducts.filter(product => product.approvalStatus === 'PENDING').length);
+        sidebarCount.innerText = String(productModerationPage.pendingCount);
     }
 
     if (vendorProducts.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" class="seller-data-message">No vendor products found.</td></tr>';
+        renderProductsModerationPagination();
         return;
     }
 
@@ -885,6 +961,31 @@ function renderProductsModerationTable() {
             </td>
         </tr>
     `).join('');
+    renderProductsModerationPagination();
+}
+
+function renderProductsModerationPagination() {
+    const pagination = document.getElementById('products-moderation-pagination');
+    if (!pagination) return;
+
+    const start = productModerationPage.totalElements === 0
+        ? 0
+        : productModerationPage.page * PRODUCT_MODERATION_PAGE_SIZE + 1;
+    const end = Math.min(
+        (productModerationPage.page + 1) * PRODUCT_MODERATION_PAGE_SIZE,
+        productModerationPage.totalElements);
+
+    pagination.innerHTML = `
+        <span class="product-pagination-summary">Showing ${start}–${end} of ${productModerationPage.totalElements} products</span>
+        <div class="product-pagination-controls">
+            <button type="button" class="product-pagination-button"
+                    onclick="changeModerationPage(${productModerationPage.page - 1})"
+                    ${productModerationPage.page === 0 ? 'disabled' : ''} aria-label="Previous page">Previous</button>
+            <span class="product-pagination-page">Page ${productModerationPage.totalPages === 0 ? 0 : productModerationPage.page + 1} of ${productModerationPage.totalPages}</span>
+            <button type="button" class="product-pagination-button"
+                    onclick="changeModerationPage(${productModerationPage.page + 1})"
+                    ${productModerationPage.page + 1 >= productModerationPage.totalPages ? 'disabled' : ''} aria-label="Next page">Next</button>
+        </div>`;
 }
 
 async function setProductActive(id, active) {
@@ -925,6 +1026,12 @@ async function setProductApprovalStatus(id, status) {
 
         const productIndex = vendorProducts.findIndex(product => product.id === id);
         if (productIndex !== -1) {
+            const previousStatus = vendorProducts[productIndex].approvalStatus;
+            if (previousStatus === 'PENDING' && result.approvalStatus !== 'PENDING') {
+                productModerationPage.pendingCount = Math.max(0, productModerationPage.pendingCount - 1);
+            } else if (previousStatus !== 'PENDING' && result.approvalStatus === 'PENDING') {
+                productModerationPage.pendingCount += 1;
+            }
             vendorProducts[productIndex] = result;
         }
         showToast(`Product ${status.toLowerCase()}`, 'success');

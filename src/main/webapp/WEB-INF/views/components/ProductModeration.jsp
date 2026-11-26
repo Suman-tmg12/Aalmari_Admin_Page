@@ -25,5 +25,7 @@
                                 <tbody id="products-moderation-tbody"></tbody>
                             </table>
                         </div>
+                        <div id="products-moderation-pagination" class="product-pagination"
+                             aria-label="Product moderation pages"></div>
                     </div>
                 </section>

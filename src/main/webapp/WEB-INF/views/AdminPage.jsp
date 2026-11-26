@@ -3,6 +3,11 @@
 <%@ page import="org.springframework.security.web.csrf.CsrfToken" %>
 <%
     CsrfToken csrfToken = (CsrfToken) request.getAttribute("_csrf");
+    String adminAvatarUrl = (String) request.getAttribute("adminAvatarUrl");
+    if (adminAvatarUrl == null || adminAvatarUrl.isBlank()) {
+        adminAvatarUrl = request.getContextPath() + "/images/admin-profile.svg";
+    }
+    adminAvatarUrl = org.springframework.web.util.HtmlUtils.htmlEscape(adminAvatarUrl);
 %>
 <!DOCTYPE html>
 <html lang="en">
@@ -17,7 +22,7 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Design System Stylesheet (replaces Tailwind) -->
-    <link rel="stylesheet" href="<%= request.getContextPath() %>/css/AdminPage.css?v=20261125-1740">
+    <link rel="stylesheet" href="<%= request.getContextPath() %>/css/AdminPage.css?v=20261126-1305">
     <meta name="aalmari-shopping-api-base" content="http://localhost:8080">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -128,7 +133,16 @@
                     </button>
 
                     <div class="user-profile">
-                        <img class="avatar" src="<%= request.getContextPath() %>/images/admin-profile.svg?v=20261121" alt="Super Admin">
+                        <button type="button" class="profile-avatar-button" id="admin-avatar-button"
+                                title="Change profile picture" aria-label="Change admin profile picture">
+                            <img class="avatar" id="admin-avatar"
+                                 src="<%= adminAvatarUrl %>" alt="Admin profile picture">
+                            <span class="profile-avatar-camera" aria-hidden="true">
+                                <i class="fa-solid fa-camera"></i>
+                            </span>
+                        </button>
+                        <input type="file" id="admin-avatar-file" accept="image/png,image/jpeg"
+                               hidden aria-label="Choose a PNG or JPEG profile picture">
                         <div class="user-info">
                             <h4><%= request.getUserPrincipal().getName() %></h4>
                             <p>Aalmari Operations</p>
@@ -463,6 +477,6 @@
     </div>
 
     <!-- JAVASCRIPT APP LOGIC -->
-<script src="/js/AdminPage.js?v=20261125-1740"></script>
+<script src="/js/AdminPage.js?v=20261126-1305"></script>
 </body>
 </html>

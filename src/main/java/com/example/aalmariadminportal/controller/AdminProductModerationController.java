@@ -1,6 +1,5 @@
 package com.example.aalmariadminportal.controller;
 
-import com.example.aalmariadminportal.dto.AdminModerationProductResponse;
 import com.example.aalmariadminportal.service.AdminModerationProductService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -10,9 +9,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -27,8 +26,14 @@ public class AdminProductModerationController {
     }
 
     @GetMapping
-    public List<AdminModerationProductResponse> getProducts() {
-        return productService.getProducts();
+    public ResponseEntity<?> getProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
+        if (page < 0 || size < 1 || size > 100) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "Page must be zero or greater and size must be between 1 and 100."));
+        }
+        return ResponseEntity.ok(productService.getProducts(page, size));
     }
 
     @PostMapping("/{id}/active")

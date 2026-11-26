@@ -5,7 +5,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockHttpSession;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.SessionCookieConfig;
 import jakarta.servlet.DispatcherType;
+import org.springframework.boot.web.servlet.ServletContextInitializer;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -15,6 +18,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
@@ -28,8 +34,22 @@ class AalmariAdminPortalApplicationTests {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private ServletContextInitializer adminSessionCookieInitializer;
+
     @Test
     void contextLoads() {
+    }
+
+    @Test
+    void adminUsesAnAppSpecificSessionCookie() throws Exception {
+        ServletContext servletContext = mock(ServletContext.class);
+        SessionCookieConfig cookieConfig = mock(SessionCookieConfig.class);
+        when(servletContext.getSessionCookieConfig()).thenReturn(cookieConfig);
+
+        adminSessionCookieInitializer.onStartup(servletContext);
+
+        verify(cookieConfig).setName("AALMARI_ADMIN_SESSION");
     }
 
     @Test
@@ -54,9 +74,12 @@ class AalmariAdminPortalApplicationTests {
                 .andReturn();
 
         MockHttpSession session = (MockHttpSession) loginResult.getRequest().getSession(false);
-        mockMvc.perform(get("/api/admin/products").session(session))
+        mockMvc.perform(get("/api/admin/products?page=0&size=10").session(session))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray());
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(10))
+                .andExpect(jsonPath("$.pendingCount").isNumber());
     }
 
     @Test

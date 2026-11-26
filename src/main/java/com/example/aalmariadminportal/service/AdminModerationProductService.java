@@ -1,14 +1,15 @@
 package com.example.aalmariadminportal.service;
 
 import com.example.aalmariadminportal.dto.AdminModerationProductResponse;
+import com.example.aalmariadminportal.dto.AdminModerationProductPageResponse;
 import com.example.aalmariadminportal.model.AdminModerationProduct;
 import com.example.aalmariadminportal.repository.AdminModerationProductRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 @Service
 public class AdminModerationProductService {
@@ -20,10 +21,19 @@ public class AdminModerationProductService {
     }
 
     @Transactional(readOnly = true)
-    public List<AdminModerationProductResponse> getProducts() {
-        return productRepository.findAllForModeration().stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+    public AdminModerationProductPageResponse getProducts(int page, int size) {
+        Page<AdminModerationProductResponse> products = productRepository.findAllForModeration(
+                        PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id")))
+                .map(this::toResponse);
+        return new AdminModerationProductPageResponse(
+                products.getContent(),
+                products.getNumber(),
+                products.getSize(),
+                products.getTotalElements(),
+                products.getTotalPages(),
+                productRepository.countByApprovalStatus("PENDING"),
+                products.isFirst(),
+                products.isLast());
     }
 
     @Transactional

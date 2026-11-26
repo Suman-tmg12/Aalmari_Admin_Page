@@ -91,4 +91,35 @@ public class S3Service {
             throw new IOException("AWS credentials or S3 configuration is invalid: " + e.getMessage());
         }
     }
+
+    public String uploadAdminAvatar(MultipartFile file, String imageFormat) throws IOException {
+        String extension;
+        String contentType;
+        if ("png".equals(imageFormat)) {
+            extension = ".png";
+            contentType = "image/png";
+        } else if ("jpeg".equals(imageFormat)) {
+            extension = ".jpg";
+            contentType = "image/jpeg";
+        } else {
+            throw new IllegalArgumentException("Only PNG and JPEG profile pictures are supported.");
+        }
+
+        String key = "admin-profile/" + UUID.randomUUID() + extension;
+        try {
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(key)
+                    .contentType(contentType)
+                    .build();
+
+            getS3Client().putObject(putObjectRequest,
+                    RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+            return bucketUrl1 + key;
+        } catch (S3Exception e) {
+            throw new IOException("Failed to upload admin profile picture to S3: " + e.getMessage(), e);
+        } catch (SdkException e) {
+            throw new IOException("AWS credentials or S3 configuration is invalid.", e);
+        }
+    }
 }

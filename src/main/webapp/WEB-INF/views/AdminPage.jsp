@@ -18,11 +18,11 @@
     <meta name="_csrf" content="<%= csrfToken.getToken() %>">
     <meta name="_csrf_header" content="<%= csrfToken.getHeaderName() %>">
     <% } %>
-    <title>Aalmari Multi-Vendor Marketplace - Admin Portal</title>
+    <title>Aalmari Admin Portal</title>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Design System Stylesheet (replaces Tailwind) -->
-    <link rel="stylesheet" href="<%= request.getContextPath() %>/css/AdminPage.css?v=20261126-1305">
+    <link rel="stylesheet" href="<%= request.getContextPath() %>/css/AdminPage.css?v=20261126-1318">
     <meta name="aalmari-shopping-api-base" content="http://localhost:8080">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -127,10 +127,29 @@
                 <div class="header-actions">
 
 
-                    <button id="notif-btn" class="icon-btn">
-                        <i class="fa-regular fa-bell"></i>
-                        <span class="notification-dot"></span>
-                    </button>
+                    <div class="notification-control">
+                        <button id="notif-btn" type="button" class="icon-btn" aria-label="Notifications"
+                                aria-expanded="false" aria-controls="admin-notifications">
+                            <i class="fa-regular fa-bell" aria-hidden="true"></i>
+                            <span id="notification-count" class="notification-count" hidden></span>
+                        </button>
+                        <section id="admin-notifications" class="notification-panel" aria-label="Notifications" hidden>
+                            <div class="notification-panel-header">
+                                <div>
+                                    <h2>Notifications</h2>
+                                    <p>Items that need your review</p>
+                                </div>
+                                <button id="refresh-notifications-btn" type="button" class="notification-refresh-btn"
+                                        aria-label="Refresh notifications" title="Refresh notifications">
+                                    <i class="fa-solid fa-rotate" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <div id="notification-list" class="notification-list" role="status" aria-live="polite">
+                                Loading notifications…
+                            </div>
+                            <div class="notification-panel-footer">Updates automatically every minute</div>
+                        </section>
+                    </div>
 
                     <div class="user-profile">
                         <button type="button" class="profile-avatar-button" id="admin-avatar-button"
@@ -278,18 +297,21 @@
                     <h1 style="font-size:1.5rem; font-weight:800; margin-bottom:1.5rem;">Marketplace Settings</h1>
 
                     <div class="card-glass form-stack" style="max-width:640px;">
-                        <h2 class="card-title" style="font-size:0.95rem;">Platform Credentials &amp; Legal KYC Rules</h2>
-
-                        <div class="form-group">
-                            <label class="form-label">Marketplace Platform Name</label>
-                            <input type="text" value="Aalmari Multi-Vendor Online" class="form-input">
+                        <div>
+                            <h2 class="card-title" style="font-size:0.95rem;">Storefront branding</h2>
+                            <p class="cell-muted">This name appears in browser tabs across the shopping site and admin portal.</p>
                         </div>
-
                         <div class="form-group">
-                            <label class="form-label">Required KYC Documents for Sellers</label>
-                            <div class="checklist-item"><input type="checkbox" checked disabled> Business Registration / Ward Certificate (Mandatory)</div>
-                            <div class="checklist-item"><input type="checkbox" checked disabled> PAN / VAT Tax Document Card (Mandatory)</div>
-                            <div class="checklist-item"><input type="checkbox" checked disabled> Proprietor Citizenship / ID Passport (Mandatory)</div>
+                            <label class="form-label" for="marketplace-platform-name">Marketplace Platform Name</label>
+                            <input id="marketplace-platform-name" type="text" maxlength="80"
+                                   autocomplete="organization" class="form-input" value="Aalmari Multi-Vendor Online"
+                                   disabled required>
+                        </div>
+                        <p id="marketplace-settings-feedback" class="cell-muted" role="status" aria-live="polite">Loading settings…</p>
+                        <div style="display:flex; justify-content:flex-end;">
+                            <button type="button" id="save-marketplace-settings-btn" class="btn btn-primary" disabled>
+                                <i class="fa-solid fa-check" aria-hidden="true"></i> Save platform name
+                            </button>
                         </div>
                     </div>
                 </section>
@@ -477,6 +499,6 @@
     </div>
 
     <!-- JAVASCRIPT APP LOGIC -->
-<script src="/js/AdminPage.js?v=20261126-1305"></script>
+<script src="/js/AdminPage.js?v=20261126-1318"></script>
 </body>
 </html>

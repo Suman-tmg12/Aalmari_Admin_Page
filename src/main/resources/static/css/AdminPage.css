@@ -352,15 +352,162 @@ textarea:focus-visible,
     color: var(--orange-600);
 }
 
-.notification-dot {
+.notification-control {
+    position: relative;
+}
+
+.notification-count {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 7px;
-    height: 7px;
-    border: 1px solid var(--surface);
-    border-radius: 50%;
+    top: -5px;
+    right: -5px;
+    min-width: 19px;
+    height: 19px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--surface);
+    border-radius: 999px;
     background: var(--danger);
+    color: #fff;
+    padding: 0 4px;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.notification-count[hidden],
+.notification-panel[hidden] {
+    display: none;
+}
+
+.notification-panel {
+    position: absolute;
+    z-index: 300;
+    top: calc(100% + 10px);
+    right: 0;
+    width: min(380px, calc(100vw - 24px));
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: 0 16px 40px rgba(28, 25, 23, 0.18);
+}
+
+.notification-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--line);
+    padding: 16px;
+}
+
+.notification-panel-header h2 {
+    margin: 0;
+    color: var(--ink-900);
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.notification-panel-header p {
+    margin: 4px 0 0;
+    color: var(--ink-600);
+    font-size: 12px;
+}
+
+.notification-refresh-btn {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 auto;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--ink-600);
+    cursor: pointer;
+}
+
+.notification-refresh-btn:hover {
+    border-color: var(--orange-500);
+    color: var(--orange-600);
+}
+
+.notification-list {
+    max-height: min(420px, 60vh);
+    overflow-y: auto;
+}
+
+.notification-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+    padding: 13px 16px;
+    color: var(--ink-900);
+    text-align: left;
+    cursor: pointer;
+}
+
+.notification-item:hover,
+.notification-item:focus-visible {
+    background: var(--orange-50);
+    outline: none;
+}
+
+.notification-item-icon {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--orange-50);
+    color: var(--orange-600);
+}
+
+.notification-item-copy {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.notification-item-title {
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.notification-item-detail {
+    color: var(--ink-600);
+    font-size: 11px;
+}
+
+.notification-item-arrow {
+    flex: 0 0 auto;
+    color: var(--ink-400);
+    font-size: 11px;
+}
+
+.notification-empty {
+    margin: 0;
+    color: var(--ink-600);
+    padding: 22px 16px;
+    font-size: 13px;
+    text-align: center;
+}
+
+.notification-panel-footer {
+    border-top: 1px solid var(--line);
+    color: var(--ink-400);
+    padding: 10px 16px;
+    font-size: 11px;
 }
 
 .user-profile {
@@ -881,6 +1028,141 @@ textarea:focus-visible,
     display: grid;
     grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
     gap: 12px;
+}
+
+.payout-page-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+}
+
+.commission-settings-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 18px 20px;
+    border-left: 3px solid var(--orange-500);
+}
+
+.commission-settings-copy {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.commission-settings-icon {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 10px;
+    background: var(--orange-50);
+    color: var(--orange-600);
+}
+
+.commission-settings-copy .card-title,
+.payout-queue-header .card-title {
+    font-size: 15px;
+}
+
+.commission-settings-copy p,
+.payout-queue-header p {
+    margin-top: 4px;
+    color: var(--ink-600);
+    font-size: 12px;
+}
+
+.commission-settings-controls {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex: 0 0 auto;
+}
+
+.commission-rate-field {
+    width: 190px;
+}
+
+.commission-rate-field .form-label {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--ink-600);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.commission-rate-input {
+    position: relative;
+}
+
+.commission-rate-input .form-input {
+    padding-right: 36px;
+    font-variant-numeric: tabular-nums;
+}
+
+.commission-rate-input > span {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    color: var(--ink-600);
+    font-size: 13px;
+    transform: translateY(-50%);
+}
+
+.commission-settings-controls .btn {
+    min-width: 112px;
+}
+
+.payout-queue-card {
+    min-width: 0;
+    overflow: hidden;
+    padding: 0;
+}
+
+.payout-queue-header {
+    min-height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+}
+
+.payout-period-badge {
+    flex: 0 0 auto;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    padding: 6px 10px;
+    color: var(--ink-600);
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.payout-table-responsive {
+    overflow-x: auto;
+}
+
+.payout-table-responsive .custom-table {
+    min-width: 900px;
+}
+
+.payout-table-responsive .custom-table th,
+.payout-table-responsive .custom-table td {
+    padding-right: 16px;
+    padding-left: 16px;
+}
+
+.payout-table-responsive .custom-table td:nth-child(2),
+.payout-table-responsive .custom-table td:nth-child(3),
+.payout-table-responsive .custom-table td:nth-child(4),
+.payout-table-responsive .custom-table td:nth-child(6) {
+    white-space: nowrap;
 }
 
 .toggle-row,
@@ -1576,6 +1858,20 @@ input:checked + .slider-toggle:before {
     .slider-manager-grid {
         grid-template-columns: 1fr;
     }
+
+    .commission-settings-card {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .commission-settings-controls {
+        width: 100%;
+    }
+
+    .commission-rate-field {
+        flex: 1;
+    }
 }
 
 @media (max-width: 640px) {
@@ -1625,6 +1921,25 @@ input:checked + .slider-toggle:before {
 
     .page-header .btn {
         width: 100%;
+    }
+
+    .commission-settings-controls {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .commission-rate-field {
+        width: 100%;
+    }
+
+    .commission-settings-controls .btn {
+        width: 100%;
+    }
+
+    .payout-queue-header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 10px;
     }
 
     .stats-grid {

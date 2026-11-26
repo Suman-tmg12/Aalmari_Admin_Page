@@ -43,6 +43,8 @@ function adminFetch(resource, options = {}) {
 
 window.onload = function() {
     setupAdminProfileAvatar();
+    loadMarketplaceSettings();
+    setupAdminNotifications();
     renderKycSellerTable();
     loadSalesSummary();
     fetchHeroSlides(); // Fetch from backend instead of hardcoded
@@ -50,6 +52,10 @@ window.onload = function() {
     renderPayoutsTable();
     const saveCommissionButton = document.getElementById('save-commission-btn');
     if (saveCommissionButton) saveCommissionButton.addEventListener('click', saveCommission);
+    const saveMarketplaceSettingsButton = document.getElementById('save-marketplace-settings-btn');
+    if (saveMarketplaceSettingsButton) {
+        saveMarketplaceSettingsButton.addEventListener('click', saveMarketplaceSettings);
+    }
 
     document.querySelectorAll('.nav-menu .nav-item a').forEach(link => {
         link.addEventListener('click', function (e) {
@@ -155,6 +161,250 @@ window.onload = function() {
     }
 };
 
+let notificationRefreshInProgress = false;
+let notificationItems = [];
+
+function setupAdminNotifications() {
+    const button = document.getElementById('notif-btn');
+    const panel = document.getElementById('admin-notifications');
+    const refreshButton = document.getElementById('refresh-notifications-btn');
+    if (!button || !panel || !refreshButton) return;
+
+    button.addEventListener('click', () => {
+        const opening = panel.hidden;
+        panel.hidden = !opening;
+        button.setAttribute('aria-expanded', String(opening));
+        if (opening) refreshAdminNotifications();
+    });
+    refreshButton.addEventListener('click', () => refreshAdminNotifications());
+    document.addEventListener('click', event => {
+        if (!event.target.closest('.notification-control')) {
+            panel.hidden = true;
+            button.setAttribute('aria-expanded', 'false');
+        }
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !panel.hidden) {
+            panel.hidden = true;
+            button.setAttribute('aria-expanded', 'false');
+            button.focus();
+        }
+    });
+
+    refreshAdminNotifications();
+    window.setInterval(() => {
+        refreshAdminNotifications({ silent: true });
+    }, 60_000);
+}
+
+async function refreshAdminNotifications({ silent = false } = {}) {
+    const button = document.getElementById('notif-btn');
+    const countBadge = document.getElementById('notification-count');
+    const list = document.getElementById('notification-list');
+    if (!button || !countBadge || !list || notificationRefreshInProgress) return;
+
+    notificationRefreshInProgress = true;
+    if (!silent && notificationItems.length === 0) list.textContent = 'Loading notifications…';
+
+    try {
+        const [sellerResponse, productResponse] = await Promise.all([
+            adminFetch('/api/admin/seller-documentation/status/pending'),
+            adminFetch(`/api/admin/products?page=0&size=${PRODUCT_MODERATION_PAGE_SIZE}`)
+        ]);
+        if (!sellerResponse.ok) throw new Error(`Could not load seller notifications (${sellerResponse.status}).`);
+        if (!productResponse.ok) throw new Error(`Could not load product notifications (${productResponse.status}).`);
+
+        const sellersPending = await sellerResponse.json();
+        const productPage = await productResponse.json();
+        if (!Array.isArray(sellersPending)
+                || !productPage
+                || !Array.isArray(productPage.content)
+                || !Number.isFinite(productPage.pendingCount)) {
+            throw new Error('The notifications API returned an invalid response.');
+        }
+
+        const pendingSellers = sellersPending.filter(seller =>
+            String(seller.status || '').toLowerCase() === 'pending');
+        const pendingProducts = productPage.content.filter(product =>
+            String(product.approvalStatus || '').toUpperCase() === 'PENDING');
+        const pendingProductCount = Number(productPage.pendingCount);
+        const total = pendingSellers.length + pendingProductCount;
+
+        notificationItems = [];
+        pendingSellers.slice(0, 5).forEach(seller => {
+            notificationItems.push({
+                icon: 'fa-store',
+                title: seller.storeName || 'New seller application',
+                detail: 'Seller application awaiting review',
+                action: async () => {
+                    switchView('seller-kyc');
+                    await filterSellerStatus('PENDING');
+                    openKycModal(seller.id);
+                }
+            });
+        });
+        if (pendingSellers.length > 5) {
+            notificationItems.push({
+                icon: 'fa-users',
+                title: `${pendingSellers.length - 5} more seller applications`,
+                detail: 'Open seller approvals to review all pending applications',
+                action: async () => {
+                    switchView('seller-kyc');
+                    await filterSellerStatus('PENDING');
+                }
+            });
+        }
+        if (pendingProductCount > 0) {
+            const latestProduct = pendingProducts[0];
+            notificationItems.push({
+                icon: 'fa-box',
+                title: `${pendingProductCount} product${pendingProductCount === 1 ? '' : 's'} awaiting review`,
+                detail: latestProduct
+                    ? `Latest: ${latestProduct.title || 'Untitled product'}`
+                    : 'Open product moderation to review pending listings',
+                action: () => {
+                    switchView('product-moderation');
+                    loadModerationProducts(0);
+                }
+            });
+        }
+
+        countBadge.hidden = total === 0;
+        countBadge.textContent = total > 99 ? '99+' : String(total);
+        button.setAttribute('aria-label', total ? `Notifications, ${total} pending items` : 'Notifications, none pending');
+        renderAdminNotifications();
+    } catch (error) {
+        console.error('Error refreshing admin notifications:', error);
+        if (!silent || notificationItems.length === 0) {
+            list.textContent = `${error.message || 'Notifications could not be loaded.'} Use the refresh button to try again.`;
+        }
+        button.setAttribute('aria-label', 'Notifications, unable to refresh');
+    } finally {
+        notificationRefreshInProgress = false;
+    }
+}
+
+function renderAdminNotifications() {
+    const list = document.getElementById('notification-list');
+    if (!list) return;
+    list.replaceChildren();
+
+    if (notificationItems.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'notification-empty';
+        empty.textContent = 'You’re all caught up. No pending reviews.';
+        list.appendChild(empty);
+        return;
+    }
+
+    notificationItems.forEach(item => {
+        const entry = document.createElement('button');
+        entry.type = 'button';
+        entry.className = 'notification-item';
+
+        const icon = document.createElement('span');
+        icon.className = 'notification-item-icon';
+        const iconElement = document.createElement('i');
+        iconElement.className = `fa-solid ${item.icon}`;
+        iconElement.setAttribute('aria-hidden', 'true');
+        icon.appendChild(iconElement);
+
+        const copy = document.createElement('span');
+        copy.className = 'notification-item-copy';
+        const title = document.createElement('span');
+        title.className = 'notification-item-title';
+        title.textContent = item.title;
+        const detail = document.createElement('span');
+        detail.className = 'notification-item-detail';
+        detail.textContent = item.detail;
+        copy.append(title, detail);
+
+        const arrow = document.createElement('i');
+        arrow.className = 'fa-solid fa-chevron-right notification-item-arrow';
+        arrow.setAttribute('aria-hidden', 'true');
+        entry.append(icon, copy, arrow);
+        entry.addEventListener('click', async () => {
+            const panel = document.getElementById('admin-notifications');
+            const button = document.getElementById('notif-btn');
+            if (panel) panel.hidden = true;
+            if (button) button.setAttribute('aria-expanded', 'false');
+            try {
+                await item.action();
+            } catch (error) {
+                console.error('Could not open notification:', error);
+                showToast('Could not open this notification. Please try again.', 'danger');
+            }
+        });
+        list.appendChild(entry);
+    });
+}
+
+async function loadMarketplaceSettings() {
+    const nameInput = document.getElementById('marketplace-platform-name');
+    const saveButton = document.getElementById('save-marketplace-settings-btn');
+    const feedback = document.getElementById('marketplace-settings-feedback');
+    if (!nameInput || !saveButton || !feedback) return;
+
+    try {
+        const response = await adminFetch('/api/admin/settings/marketplace');
+        if (!response.ok) throw new Error(`Could not load settings (${response.status}).`);
+        const settings = await response.json();
+        if (typeof settings.platformName !== 'string' || !settings.platformName.trim()) {
+            throw new Error('The saved platform name is invalid.');
+        }
+
+        nameInput.value = settings.platformName;
+        nameInput.disabled = false;
+        saveButton.disabled = false;
+        feedback.textContent = 'Changes are saved to the shared marketplace settings.';
+    } catch (error) {
+        feedback.textContent = error.message || 'Could not load marketplace settings.';
+        feedback.setAttribute('role', 'alert');
+        showToast(feedback.textContent, 'danger');
+    }
+}
+
+async function saveMarketplaceSettings() {
+    const nameInput = document.getElementById('marketplace-platform-name');
+    const saveButton = document.getElementById('save-marketplace-settings-btn');
+    const feedback = document.getElementById('marketplace-settings-feedback');
+    if (!nameInput || !saveButton || !feedback) return;
+
+    const platformName = nameInput.value.trim();
+    if (!platformName || platformName.length > 80) {
+        feedback.textContent = 'Enter a platform name between 1 and 80 characters.';
+        feedback.setAttribute('role', 'alert');
+        nameInput.focus();
+        return;
+    }
+
+    saveButton.disabled = true;
+    feedback.setAttribute('role', 'status');
+    feedback.textContent = 'Saving platform name…';
+    try {
+        const response = await adminFetch('/api/admin/settings/marketplace', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ platformName })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || `Could not save settings (${response.status}).`);
+        if (typeof result.platformName !== 'string' || !result.platformName.trim()) {
+            throw new Error('The server returned an invalid platform name.');
+        }
+
+        nameInput.value = result.platformName;
+        feedback.textContent = 'Platform name saved. It will appear on the shopping site after its next page load.';
+        showToast('Marketplace platform name saved.', 'success');
+    } catch (error) {
+        feedback.textContent = error.message || 'Could not save marketplace settings.';
+        feedback.setAttribute('role', 'alert');
+        showToast(feedback.textContent, 'danger');
+    } finally {
+        saveButton.disabled = false;
+    }
+}
+
 function setupAdminProfileAvatar() {
     const button = document.getElementById('admin-avatar-button');
     const fileInput = document.getElementById('admin-avatar-file');
@@ -234,7 +484,7 @@ function filterSellerStatus(status) {
             btn.classList.toggle('active', isMatch);
         }
     });
-    renderKycSellerTable();
+    return renderKycSellerTable();
 }
 
 // Fetch seller documentation from backend
@@ -453,6 +703,7 @@ async function approveSellerKyc() {
             showToast(`Seller "${sellers.find(s => s.id === activeKycSellerId)?.storeName}" approved! Account upgraded to Active Seller.`, 'success');
             renderKycSellerTable();
             closeKycModal();
+            refreshAdminNotifications({ silent: true });
         } else {
             showToast('Failed to approve application', 'danger');
         }
@@ -497,6 +748,7 @@ async function submitKycRejection(e) {
             renderKycSellerTable();
             closeRejectReasonModal();
             closeKycModal();
+            refreshAdminNotifications({ silent: true });
         } else {
             showToast('Failed to reject application', 'danger');
         }
@@ -1036,6 +1288,7 @@ async function setProductApprovalStatus(id, status) {
         }
         showToast(`Product ${status.toLowerCase()}`, 'success');
         renderProductsModerationTable();
+        refreshAdminNotifications({ silent: true });
     } catch (error) {
         console.error('Error moderating product:', error);
         showToast(error.message || 'Could not update product approval.', 'danger');
